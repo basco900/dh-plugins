@@ -1,0 +1,87 @@
+.dh-popup-studio-grid { display: grid; grid-template-columns: minmax(240px, 290px) minmax(0, 1fr); align-items: start; gap: 16px; }
+.dh-popup-studio-grid > .dh-ui-card { min-width: 0; padding: 19px; border: 1px solid #eee8f0; border-radius: 12px; background: #fff; box-shadow: 0 2px 8px rgba(31, 19, 36, .025); }
+.dh-popup-list-card { position: sticky; top: 48px; }
+.dh-popup-list-card .dh-ui-card-heading, .dh-popup-editor-card .dh-ui-card-heading { align-items: flex-start; margin-bottom: 15px; }
+.dh-popup-list-card .dh-ui-card-heading h3, .dh-popup-editor-card .dh-ui-card-heading h3 { margin: 0 0 5px; color: #241d29; font-size: 17px; letter-spacing: -.025em; }
+.dh-popup-list-card .dh-ui-card-heading p:not(.dh-ui-eyebrow), .dh-popup-editor-card .dh-ui-card-heading p:not(.dh-ui-eyebrow) { margin: 0; color: #756d7b; font-size: 12px; line-height: 1.55; }
+.dh-popup-add { display: flex !important; justify-content: center; margin-bottom: 13px !important; }
+.dh-popup-record-list { display: grid; gap: 7px; }
+.dh-popup-record { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 11px; border: 1px solid transparent; border-radius: 8px; color: #38303d; text-decoration: none; }
+.dh-popup-record:hover, .dh-popup-record.is-selected { border-color: #eadfec; background: #fbf7fc; color: #611f69; }
+.dh-popup-record > span { display: grid; min-width: 0; gap: 4px; }
+.dh-popup-record strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.dh-popup-record small { color: #817987; font-size: 10px; }
+.dh-popup-record i { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: #b9b3bd; }
+.dh-popup-record i.is-active { background: #30a477; box-shadow: 0 0 0 3px #e8f7f0; }
+.dh-popup-record i.is-paused { background: #d28a38; }
+.dh-popup-record i.is-archived { background: #98919e; }
+.dh-popup-version { flex: 0 0 auto; padding: 5px 8px; border-radius: 999px; background: #f6f0f7; color: #6d2873; font-size: 10px; font-weight: 700; }
+.dh-popup-editor-tabs { display: flex; gap: 4px; overflow-x: auto; margin: 0 -19px 18px; padding: 0 19px 11px; border-bottom: 1px solid #eee9f0; }
+.dh-popup-editor-tabs button { min-height: 34px; flex: 0 0 auto; padding: 0 11px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: #6a626f; font-size: 11px; font-weight: 600; cursor: pointer; }
+.dh-popup-editor-tabs button:hover { background: #faf7fb; color: #611f69; }
+.dh-popup-editor-tabs button.is-active { border-color: #eadfec; background: #f8f0f9; color: #611f69; }
+.dh-popup-panel[hidden] { display: none !important; }
+.dh-popup-field { display: grid; min-width: 0; gap: 6px; margin: 0 0 14px; color: #403744; font-size: 11px; font-weight: 650; }
+.dh-popup-field > span { display: grid; gap: 4px; }
+.dh-popup-field small { color: #817987; font-size: 10px; font-weight: 400; line-height: 1.45; }
+.dh-popup-field input:not([type="checkbox"]):not([type="color"]), .dh-popup-field textarea, .dh-popup-field select { width: 100%; min-height: 38px; padding: 8px 10px; border: 1px solid #e7e1e9; border-radius: 7px; background-color: #fff; color: #2b2430; font-family: inherit; font-size: 12px; font-weight: 400; line-height: 1.45; box-shadow: none; }
+.dh-popup-field textarea { min-height: 100px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; }
+.dh-popup-field input:focus, .dh-popup-field textarea:focus, .dh-popup-field select:focus { border-color: #bb9cbe; outline: 0; box-shadow: 0 0 0 3px rgba(97, 31, 105, .09); }
+.dh-popup-field-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.dh-popup-toggle-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 3px 0 16px; }
+.dh-popup-toggle { display: flex; min-height: 36px; align-items: center; gap: 7px; padding: 7px 9px; border: 1px solid #eee8f0; border-radius: 7px; background: #fcfbfc; color: #514957; font-size: 10px; }
+.dh-popup-toggle input { accent-color: #611f69; }
+.dh-popup-color-field { grid-template-columns: 1fr auto; align-items: center; }
+.dh-popup-color-field input { width: 38px; height: 32px; padding: 3px; border: 1px solid #e7e1e9; border-radius: 6px; background: #fff; }
+.dh-popup-actions { display: flex; align-items: center; gap: 10px; }
+.dh-popup-actions p { margin: 0; color: #817987; font-size: 10px; }
+.dh-popup-form-actions { display: flex; align-items: center; gap: 8px; margin-top: 16px; padding-top: 14px; border-top: 1px solid #eee9f0; }
+.dh-popup-form-actions .button, .dh-popup-duplicate-form .button { min-height: 34px; }
+.dh-popup-delete-form, .dh-popup-duplicate-form { display: inline-block; margin: 10px 10px 0 0; }
+.dh-popup-history { margin-top: 14px; padding: 11px 12px; border: 1px solid #eee9f0; border-radius: 7px; color: #514957; font-size: 11px; }
+.dh-popup-history summary { cursor: pointer; font-weight: 650; }
+.dh-popup-history ol { display: grid; gap: 5px; margin: 10px 0 0; padding-left: 19px; color: #746d79; }
+.dh-popup-metric-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.dh-popup-metric-grid article { display: grid; gap: 8px; min-width: 0; padding: 14px; border: 1px solid #eee8f0; border-radius: 8px; background: #fcfbfc; }
+.dh-popup-metric-grid span { color: #77707c; font-size: 10px; }
+.dh-popup-metric-grid strong { color: #2b2430; font-size: 22px; letter-spacing: -.04em; }
+.dh-popup-metric-grid small { color: #8b8490; font-size: 9px; line-height: 1.45; }
+.dh-popup-metric-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; margin-top: 12px; }
+.dh-popup-metric-columns > section { min-width: 0; padding: 14px; border: 1px solid #eee8f0; border-radius: 8px; background: #fff; }
+.dh-popup-metric-columns h4 { margin: 0 0 4px; color: #38303d; font-size: 12px; }
+.dh-popup-metric-columns > section > p { margin: 0 0 9px; color: #89828d; font-size: 9px; }
+.dh-popup-metric-columns > section > div:not(.dh-popup-device-row) { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid #f0edf1; color: #635b68; font-size: 10px; }
+.dh-popup-metric-columns > section > div.is-total { border-top: 1px solid #e9e4eb; border-bottom: 0; color: #611f69; font-weight: 700; }
+.dh-popup-device-row { display: grid; gap: 5px; margin-top: 12px; }
+.dh-popup-device-row > div { display: flex; justify-content: space-between; gap: 12px; color: #635b68; font-size: 10px; }
+.dh-popup-device-row strong { color: #342c39; font-weight: 650; }
+.dh-popup-device-row i { display: block; height: 5px; overflow: hidden; border-radius: 999px; background: #f1edf2; }
+.dh-popup-device-row b { display: block; height: 100%; border-radius: inherit; background: #611f69; }
+.dh-popup-metric-dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 11px; }
+.dh-popup-metric-dates > div { display: grid; gap: 7px; padding: 12px; border-radius: 7px; background: #faf8fb; }
+.dh-popup-metric-dates span { color: #817987; font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.dh-popup-metric-dates strong { color: #403744; font-size: 10px; }
+.dh-popup-history-heading { display: grid; gap: 5px; margin-bottom: 11px; }
+.dh-popup-history-heading strong { color: #38303d; font-size: 12px; }
+.dh-popup-history-heading span { color: #89828d; font-size: 10px; }
+.dh-popup-revision-list { display: grid; margin: 0; padding: 0; border-top: 1px solid #eee9f0; list-style: none; }
+.dh-popup-revision-list li { display: flex; min-width: 0; align-items: center; gap: 11px; padding: 10px 0; border-bottom: 1px solid #eee9f0; }
+.dh-popup-revision-info { display: grid; min-width: 0; flex: 1; gap: 4px; }
+.dh-popup-revision-info strong { color: #514957; font-size: 10px; }
+.dh-popup-revision-info small { color: #89828d; font-size: 9px; }
+.dh-popup-revision-list em { color: #25855f; font-size: 9px; font-style: normal; font-weight: 700; }
+.dh-popup-restore-button { min-height: 28px !important; }
+.dh-popup-hidden-action-form { display: none !important; }
+.dh-popup-preview[hidden] { display: none !important; }
+.dh-popup-preview { position: fixed; inset: 0; z-index: 100000; display: grid; place-items: center; padding: 26px; }
+.dh-popup-preview-scrim { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: rgba(28, 20, 31, .48); }
+.dh-popup-preview-frame { position: relative; z-index: 1; width: min(100%, 580px); max-height: min(86vh, 800px); overflow: auto; border-radius: 15px; background: #fff; box-shadow: 0 20px 70px rgba(18, 10, 24, .28); }
+.dh-popup-preview-x { position: sticky; top: 9px; float: right; z-index: 2; display: grid; width: 31px; height: 31px; margin: 9px 9px -40px 0; place-items: center; border: 1px solid #eee8f0; border-radius: 50%; background: #fff; color: #5b5360; font-size: 20px; cursor: pointer; }
+.dh-popup-preview-content { --dh-popup-background: #fff; --dh-popup-text: #201a24; --dh-popup-accent: #611f69; min-height: 100px; padding: 26px; color: var(--dh-popup-text); }
+.dh-popup-preview-surface { width: min(100%, var(--dh-popup-width, 520px)); max-height: none; overflow: visible; background: var(--dh-popup-background); color: var(--dh-popup-text); box-shadow: 0 14px 34px rgba(25, 16, 29, .15); }
+.dh-popup-preview-surface .dh-popup-runtime-content { padding: 26px; }
+.dh-popup-preview-open { overflow: hidden; }
+@media (max-width: 1000px) { .dh-popup-studio-grid { grid-template-columns: minmax(210px, 260px) minmax(0, 1fr); } .dh-popup-toggle-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 782px) { .dh-popup-studio-grid { grid-template-columns: 1fr; } .dh-popup-list-card { position: static; } .dh-popup-record-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .dh-popup-metric-columns { grid-template-columns: 1fr; } }
+@media (max-width: 520px) { .dh-popup-field-row, .dh-popup-toggle-grid, .dh-popup-record-list, .dh-popup-metric-grid, .dh-popup-metric-dates { grid-template-columns: 1fr; } .dh-popup-studio-grid > .dh-ui-card { padding: 15px; } .dh-popup-editor-tabs { margin-right: -15px; margin-left: -15px; padding-right: 15px; padding-left: 15px; } .dh-popup-metric-grid strong { font-size: 18px; } }
