@@ -32,7 +32,9 @@ final class DixcoverHub_Custom_UI_Single_Post {
 		if ( ! is_singular( 'post' ) || empty( $options['single_post_enabled'] ) ) {
 			return;
 		}
-		wp_enqueue_style( 'dixcoverhub-single-post', DIXCOVERHUB_CUSTOM_UI_URL . 'assets/css/single-post.css', array(), DIXCOVERHUB_CUSTOM_UI_VERSION );
+		$stylesheet_path = dirname( __DIR__ ) . '/assets/css/single-post.css';
+		$style_version   = is_readable( $stylesheet_path ) ? (string) filemtime( $stylesheet_path ) : DIXCOVERHUB_CUSTOM_UI_VERSION;
+		wp_enqueue_style( 'dixcoverhub-single-post', DIXCOVERHUB_CUSTOM_UI_URL . 'assets/css/single-post.css', array(), $style_version );
 		wp_enqueue_script( 'dixcoverhub-single-post', DIXCOVERHUB_CUSTOM_UI_URL . 'assets/js/single-post.js', array(), DIXCOVERHUB_CUSTOM_UI_VERSION, true );
 	}
 }
