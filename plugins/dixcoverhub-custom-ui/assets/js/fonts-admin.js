@@ -4,6 +4,33 @@
 	var form = document.querySelector('.dh-ui-upload-form');
 	if (!form) return;
 
+	var assignments = window.DixcoverHubFontAssignments || {};
+	var assignmentNames = { 100: 'Thin', 200: 'Extra light', 300: 'Light', 400: 'Regular', 500: 'Medium', 600: 'Semi bold', 700: 'Bold', 800: 'Extra bold', 900: 'Black' };
+	document.querySelectorAll('[data-dh-font-family]').forEach(function (familySelect) {
+		var roleCard = familySelect.closest('.dh-ui-role-card');
+		var weightSelect = roleCard && roleCard.querySelector('[data-dh-font-weight]');
+		if (!weightSelect) return;
+
+		function syncAvailableWeights() {
+			var previous = Number(weightSelect.value || 400);
+			var family = familySelect.value;
+			var weights = family && assignments.weightsByFamily && assignments.weightsByFamily[family]
+				? assignments.weightsByFamily[family]
+				: (assignments.allWeights || [100, 200, 300, 400, 500, 600, 700, 800, 900]);
+			if (!weights.length) weights = assignments.allWeights || [400];
+			var selected = weights.reduce(function (nearest, weight) {
+				return Math.abs(Number(weight) - previous) < Math.abs(Number(nearest) - previous) ? weight : nearest;
+			}, weights[0]);
+			weightSelect.textContent = '';
+			weights.forEach(function (weight) {
+				var option = new Option(weight + ' · ' + (assignmentNames[weight] || 'Regular'), String(weight), false, Number(weight) === Number(selected));
+				weightSelect.add(option);
+			});
+		}
+
+		familySelect.addEventListener('change', syncAvailableWeights);
+	});
+
 	var input = form.querySelector('input[name="font_file"]');
 	var status = form.querySelector('[data-dh-font-optimization]');
 	var submitButton = form.querySelector('button[type="submit"]');

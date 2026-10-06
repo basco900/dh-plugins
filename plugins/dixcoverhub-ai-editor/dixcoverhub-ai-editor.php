@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DixcoverHub AI Editor
  * Description: AI-assisted opportunity writing, summaries, and editorial tools for DixcoverHub.
- * Version: 0.3.8
+ * Version: 0.4.24
  * Requires at least: 6.4
  * Requires PHP: 8.0
  * Text Domain: dixcoverhub-ai-editor
@@ -27,7 +27,7 @@ add_action(
 			);
 			return;
 		}
-		if ( ! defined( 'DIXCOVERHUB_AI_EDITOR_VERSION' ) ) { define( 'DIXCOVERHUB_AI_EDITOR_VERSION', '0.3.8' ); }
+		if ( ! defined( 'DIXCOVERHUB_AI_EDITOR_VERSION' ) ) { define( 'DIXCOVERHUB_AI_EDITOR_VERSION', '0.4.24' ); }
 		if ( ! defined( 'DIXCOVERHUB_AI_EDITOR_FILE' ) ) { define( 'DIXCOVERHUB_AI_EDITOR_FILE', __FILE__ ); }
 		if ( ! defined( 'DIXCOVERHUB_AI_EDITOR_DIR' ) ) { define( 'DIXCOVERHUB_AI_EDITOR_DIR', plugin_dir_path( __FILE__ ) ); }
 		if ( ! defined( 'DIXCOVERHUB_AI_EDITOR_URL' ) ) { define( 'DIXCOVERHUB_AI_EDITOR_URL', plugin_dir_url( __FILE__ ) ); }

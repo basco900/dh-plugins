@@ -2,7 +2,7 @@
 /**
  * Small PHP renderer for the Hugeicons Core Free SVG set.
  *
- * The bundled SVG path data is from @hugeicons/core-free-icons 4.3.5.
+ * The bundled SVG path data is curated from @hugeicons/core-free-icons.
  * See assets/icons/LICENSE-Hugeicons-MIT.txt.
  *
  * @package DixcoverHub\CustomUI

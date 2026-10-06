@@ -35,6 +35,10 @@ final class DixcoverHub_Custom_UI_Fonts {
 			'workerUrl'   => DIXCOVERHUB_CUSTOM_UI_URL . 'assets/js/font-optimizer-worker.js',
 			'maxFileBytes' => self::MAX_FILE_BYTES,
 		) );
+		wp_localize_script( 'dixcoverhub-fonts-admin', 'DixcoverHubFontAssignments', array(
+			'weightsByFamily' => self::weights_by_family(),
+			'allWeights'      => array( 100, 200, 300, 400, 500, 600, 700, 800, 900 ),
+		) );
 	}
 
 	/** Defaults for the site-wide typography roles. */
@@ -78,7 +82,8 @@ final class DixcoverHub_Custom_UI_Fonts {
 			$output[ $family_key ] = isset( $families[ $family ] ) ? $family : '';
 
 			$weight = isset( $input[ $weight_key ] ) ? absint( $input[ $weight_key ] ) : $defaults[ $weight_key ];
-			$output[ $weight_key ] = in_array( $weight, array( 100, 200, 300, 400, 500, 600, 700, 800, 900 ), true ) ? $weight : $defaults[ $weight_key ];
+			$allowed_weights = self::available_weights( $output[ $family_key ] );
+			$output[ $weight_key ] = self::closest_weight( $weight, $allowed_weights, $defaults[ $weight_key ] );
 		}
 
 		return $output;
@@ -167,7 +172,7 @@ final class DixcoverHub_Custom_UI_Fonts {
 					<?php self::role_fields( $families, $settings, 'interface', __( 'Navigation and buttons', 'dixcoverhub-custom-ui' ), 500 ); ?>
 					<?php self::role_fields( $families, $settings, 'small', __( 'Small text and captions', 'dixcoverhub-custom-ui' ), 400 ); ?>
 				</div>
-				<p class="dh-ui-note"><?php esc_html_e( 'Variable font files declare their real weight range. Each role disables synthetic bold and italic so the browser uses uploaded font faces instead of drawing a blurred imitation.', 'dixcoverhub-custom-ui' ); ?></p>
+				<p class="dh-ui-note"><?php esc_html_e( 'Weight choices follow the upright faces in the selected family. Variable files expose the weights inside their real axis range; static families expose only uploaded weights. Each role disables synthetic bold and italic.', 'dixcoverhub-custom-ui' ); ?></p>
 				<?php submit_button( __( 'Save typography', 'dixcoverhub-custom-ui' ), 'primary', 'submit', false, array( 'class' => 'button button-primary dh-ui-primary-button' ) ); ?>
 			</form>
 		</section>
@@ -370,9 +375,9 @@ final class DixcoverHub_Custom_UI_Fonts {
 			$font['id']       = sanitize_key( $font['id'] );
 			$font['family']   = sanitize_text_field( $font['family'] );
 			$font['filename'] = basename( sanitize_file_name( $font['filename'] ) );
-			$font['type']     = isset( $font['type'] ) && 'static' === $font['type'] ? 'static' : 'variable';
-			$font['style']    = isset( $font['style'] ) && 'italic' === $font['style'] ? 'italic' : 'normal';
 			$font['weight']   = isset( $font['weight'] ) ? preg_replace( '/[^0-9 ]/', '', (string) $font['weight'] ) : '400';
+			$font['type']     = isset( $font['type'] ) && in_array( $font['type'], array( 'static', 'variable' ), true ) ? $font['type'] : ( preg_match( '/^\d+\s+\d+$/', trim( $font['weight'] ) ) ? 'variable' : 'static' );
+			$font['style']    = isset( $font['style'] ) && 'italic' === $font['style'] ? 'italic' : 'normal';
 			$font['size']     = isset( $font['size'] ) ? absint( $font['size'] ) : 0;
 			$valid[]          = $font;
 		}
@@ -382,13 +387,16 @@ final class DixcoverHub_Custom_UI_Fonts {
 	/** Settings merged with defaults. */
 	private static function settings() {
 		$settings = get_option( self::SETTINGS_OPTION, array() );
-		return wp_parse_args( is_array( $settings ) ? $settings : array(), self::defaults() );
+		return self::sanitize_settings( wp_parse_args( is_array( $settings ) ? $settings : array(), self::defaults() ) );
 	}
 
 	/** Families keyed by a stable CSS-safe identifier. */
 	private static function families() {
 		$families = array();
 		foreach ( self::fonts() as $font ) {
+			if ( 'normal' !== $font['style'] ) {
+				continue;
+			}
 			$families[ self::family_key( $font['family'] ) ] = $font['family'];
 		}
 		return $families;
@@ -412,6 +420,9 @@ final class DixcoverHub_Custom_UI_Fonts {
 		$closest       = null;
 		$closest_gap   = PHP_INT_MAX;
 		foreach ( $faces as $face ) {
+			if ( 'normal' !== $face['font']['style'] ) {
+				continue;
+			}
 			if ( 'variable' === $face['font']['type'] ) {
 				$range = preg_split( '/\s+/', trim( $face['font']['weight'] ) );
 				$min   = isset( $range[0] ) ? absint( $range[0] ) : 400;
@@ -421,33 +432,95 @@ final class DixcoverHub_Custom_UI_Fonts {
 				}
 				continue;
 			}
-			if ( 'normal' !== $face['font']['style'] ) {
-				continue;
-			}
 			$gap = abs( absint( $face['font']['weight'] ) - $target_weight );
 			if ( $gap < $closest_gap ) {
 				$closest     = $face;
 				$closest_gap = $gap;
 			}
 		}
-		return $closest ? $closest : ( isset( $faces[0] ) ? $faces[0] : null );
+		return $closest;
+	}
+
+	/** Standard role weights backed by an upright uploaded face in this family. */
+	private static function available_weights( $family_key ) {
+		$standard = array( 100, 200, 300, 400, 500, 600, 700, 800, 900 );
+		if ( '' === $family_key ) {
+			return $standard;
+		}
+
+		$available = array();
+		foreach ( self::fonts() as $font ) {
+			if ( self::family_key( $font['family'] ) !== $family_key || 'normal' !== $font['style'] ) {
+				continue;
+			}
+			if ( 'variable' === $font['type'] ) {
+				$range = preg_split( '/\s+/', trim( $font['weight'] ) );
+				$min   = isset( $range[0] ) ? absint( $range[0] ) : 400;
+				$max   = isset( $range[1] ) ? absint( $range[1] ) : $min;
+				foreach ( $standard as $weight ) {
+					if ( $weight >= $min && $weight <= $max ) {
+						$available[ $weight ] = $weight;
+					}
+				}
+			} else {
+				$weight = absint( $font['weight'] );
+				if ( in_array( $weight, $standard, true ) ) {
+					$available[ $weight ] = $weight;
+				}
+			}
+		}
+
+		if ( empty( $available ) ) {
+			return $standard;
+		}
+		$available = array_values( $available );
+		sort( $available, SORT_NUMERIC );
+		return $available;
+	}
+
+	/** Weight coverage as a JSON-ready map for the assignment controls. */
+	private static function weights_by_family() {
+		$map = array();
+		foreach ( self::families() as $key => $name ) {
+			$map[ $key ] = self::available_weights( $key );
+		}
+		return $map;
+	}
+
+	/** Keep saved roles on an uploaded weight rather than a synthetic one. */
+	private static function closest_weight( $requested, $available, $fallback ) {
+		if ( in_array( $requested, $available, true ) ) {
+			return $requested;
+		}
+		$closest = null;
+		$gap = PHP_INT_MAX;
+		foreach ( $available as $weight ) {
+			$current_gap = abs( (int) $weight - (int) $requested );
+			if ( $current_gap < $gap ) {
+				$closest = (int) $weight;
+				$gap = $current_gap;
+			}
+		}
+		return null === $closest ? (int) $fallback : $closest;
 	}
 
 	/** Render the typography role's family and weight selectors. */
 	private static function role_fields( $families, $settings, $role, $label, $default_weight ) {
 		$family_key = $role . '_family';
 		$weight_key = $role . '_weight';
+		$weights = self::available_weights( $settings[ $family_key ] );
+		$current_weight = self::closest_weight( $settings[ $weight_key ], $weights, $default_weight );
 		?>
 		<div class="dh-ui-role-card">
-			<label class="dh-ui-field"><span><?php echo esc_html( $label ); ?></span><select name="<?php echo esc_attr( self::SETTINGS_OPTION . '[' . $family_key . ']' ); ?>"><option value=""><?php esc_html_e( 'Use theme font', 'dixcoverhub-custom-ui' ); ?></option><?php foreach ( $families as $key => $name ) : ?><option value="<?php echo esc_attr( $key ); ?>" <?php selected( $settings[ $family_key ], $key ); ?>><?php echo esc_html( $name ); ?></option><?php endforeach; ?></select></label>
-			<label class="dh-ui-field"><span><?php esc_html_e( 'Weight', 'dixcoverhub-custom-ui' ); ?></span><select name="<?php echo esc_attr( self::SETTINGS_OPTION . '[' . $weight_key . ']' ); ?>"><?php self::weight_options( $settings[ $weight_key ] ? $settings[ $weight_key ] : $default_weight ); ?></select></label>
+			<label class="dh-ui-field"><span><?php echo esc_html( $label ); ?></span><select data-dh-font-family name="<?php echo esc_attr( self::SETTINGS_OPTION . '[' . $family_key . ']' ); ?>"><option value=""><?php esc_html_e( 'Use theme font', 'dixcoverhub-custom-ui' ); ?></option><?php foreach ( $families as $key => $name ) : ?><option value="<?php echo esc_attr( $key ); ?>" <?php selected( $settings[ $family_key ], $key ); ?>><?php echo esc_html( $name ); ?></option><?php endforeach; ?></select></label>
+			<label class="dh-ui-field"><span><?php esc_html_e( 'Weight', 'dixcoverhub-custom-ui' ); ?></span><select data-dh-font-weight name="<?php echo esc_attr( self::SETTINGS_OPTION . '[' . $weight_key . ']' ); ?>"><?php self::weight_options( $current_weight, $weights ); ?></select></label>
 		</div>
 		<?php
 	}
 
 	/** Output common weight choices. */
-	private static function weight_options( $current ) {
-		foreach ( array( 100, 200, 300, 400, 500, 600, 700, 800, 900 ) as $weight ) {
+	private static function weight_options( $current, $weights = array( 100, 200, 300, 400, 500, 600, 700, 800, 900 ) ) {
+		foreach ( $weights as $weight ) {
 			$label = $weight . ' · ' . self::weight_name( $weight );
 			printf( '<option value="%1$d" %2$s>%3$s</option>', absint( $weight ), selected( (int) $current, $weight, false ), esc_html( $label ) );
 		}

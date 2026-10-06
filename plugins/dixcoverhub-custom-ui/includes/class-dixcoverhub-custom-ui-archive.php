@@ -62,6 +62,33 @@ final class DixcoverHub_Custom_UI_Archive {
 						update_post_meta( $post_id, $key, $value );
 					}
 				}
+				$taxonomy_fields = array(
+					'typeNames'     => 'dh_opportunity_type',
+					'levelNames'    => 'dh_opportunity_level',
+					'modeNames'     => 'dh_opportunity_mode',
+					'locationNames' => 'dh_opportunity_location',
+					'tagNames'      => 'post_tag',
+				);
+				$suggestions = isset( $data['taxonomy_suggestions'] ) && is_array( $data['taxonomy_suggestions'] ) ? $data['taxonomy_suggestions'] : array();
+				foreach ( $taxonomy_fields as $field => $taxonomy ) {
+					if ( ! taxonomy_exists( $taxonomy ) ) {
+						continue;
+					}
+					$assigned = wp_get_object_terms( $post_id, $taxonomy, array( 'fields' => 'ids' ) );
+					if ( is_wp_error( $assigned ) || $assigned ) {
+						continue;
+					}
+					$term_ids = array();
+					foreach ( self::stored_taxonomy_names( $suggestions[ $field ] ?? array() ) as $name ) {
+						$term = get_term_by( 'slug', sanitize_title( $name ), $taxonomy );
+						if ( $term && ! is_wp_error( $term ) ) {
+							$term_ids[] = (int) $term->term_id;
+						}
+					}
+					if ( $term_ids ) {
+						wp_set_object_terms( $post_id, array_values( array_unique( $term_ids ) ), $taxonomy, false );
+					}
+				}
 			}
 			update_post_meta( $post_id, '_dixcoverhub_archive_indexed', '1' );
 		}
@@ -70,13 +97,28 @@ final class DixcoverHub_Custom_UI_Archive {
 		}
 	}
 
+	/** Return stored taxonomy labels as a clean list without creating new terms. */
+	private static function stored_taxonomy_names( $values ) {
+		$names = array();
+		foreach ( (array) $values as $value ) {
+			if ( is_scalar( $value ) ) {
+				$name = sanitize_text_field( (string) $value );
+				if ( '' !== $name ) {
+					$names[] = $name;
+				}
+			}
+		}
+		return array_values( array_unique( $names ) );
+	}
+
 	/** Load archive styling on the route, page, or shortcode host only. */
 	public static function enqueue_assets() {
 		$options = DixcoverHub_Custom_UI::options();
 		if ( is_admin() || empty( $options['archive_enabled'] ) ) {
 			return;
 		}
-		$should_enqueue = (bool) get_query_var( self::ROUTE_VAR ) || is_page( 'opportunities' );
+		$options = DixcoverHub_Custom_UI::options();
+		$should_enqueue = (bool) get_query_var( self::ROUTE_VAR ) || is_page( 'opportunities' ) || ( is_front_page() && ! empty( $options['home_enabled'] ) && ! empty( $options['archive_enabled'] ) );
 		if ( ! $should_enqueue && is_singular() ) {
 			$queried = get_queried_object();
 			$should_enqueue = $queried instanceof WP_Post && has_shortcode( $queried->post_content, 'dixcoverhub_opportunities' );
@@ -147,11 +189,12 @@ final class DixcoverHub_Custom_UI_Archive {
 	}
 
 	/** Prepare normalized filters and render an archive query. */
-	public static function render_archive() {
+	public static function render_archive( $embedded = false ) {
 		$options = DixcoverHub_Custom_UI::options();
 		if ( empty( $options['archive_enabled'] ) ) {
 			return '';
 		}
+		$archive_main_tag = $embedded ? 'div' : 'main';
 
 		$filters = self::filters();
 		$all_categories = self::terms( 'category', false );
@@ -161,6 +204,27 @@ final class DixcoverHub_Custom_UI_Archive {
 			'types'         => self::terms( 'dh_opportunity_type' ),
 			'modes'         => self::terms( 'dh_opportunity_mode' ),
 			'locations'     => self::terms( 'dh_opportunity_location' ),
+		);
+		$popular_categories = array_values( array_filter( $terms['categories'], static function ( $term ) { return ! $term->parent; } ) );
+		$active_category_parent_slug = $filters['category'];
+		if ( $filters['category'] ) {
+			$active_category = get_term_by( 'slug', $filters['category'], 'category' );
+			if ( $active_category && ! is_wp_error( $active_category ) && $active_category->parent ) {
+				$ancestors = get_ancestors( (int) $active_category->term_id, 'category', 'taxonomy' );
+				$root_id   = $ancestors ? (int) end( $ancestors ) : (int) $active_category->parent;
+				$root      = get_term( $root_id, 'category' );
+				if ( $root && ! is_wp_error( $root ) ) {
+					$active_category_parent_slug = $root->slug;
+				}
+			}
+		}
+		usort(
+			$popular_categories,
+			static function ( $left, $right ) use ( $category_counts ) {
+				$left_count  = (int) ( $category_counts[ $left->term_id ] ?? $left->count );
+				$right_count = (int) ( $category_counts[ $right->term_id ] ?? $right->count );
+				return $left_count === $right_count ? strnatcasecmp( $left->name, $right->name ) : $right_count <=> $left_count;
+			}
 		);
 		$query_args = array(
 			'post_type'           => 'post',
@@ -215,7 +279,8 @@ final class DixcoverHub_Custom_UI_Archive {
 				}
 				$like  = '%' . $wpdb->esc_like( $needle ) . '%';
 				$extra = $wpdb->prepare(
-					"(EXISTS (SELECT 1 FROM {$wpdb->postmeta} AS dh_search_meta WHERE dh_search_meta.post_id = {$wpdb->posts}.ID AND dh_search_meta.meta_key IN ('_dixcoverhub_opportunity_data','_dixcoverhub_location','_dixcoverhub_provider_name','_dixcoverhub_employment_type') AND dh_search_meta.meta_value LIKE %s) OR EXISTS (SELECT 1 FROM {$wpdb->term_relationships} AS dh_search_rel INNER JOIN {$wpdb->term_taxonomy} AS dh_search_tax ON dh_search_tax.term_taxonomy_id = dh_search_rel.term_taxonomy_id INNER JOIN {$wpdb->terms} AS dh_search_term ON dh_search_term.term_id = dh_search_tax.term_id WHERE dh_search_rel.object_id = {$wpdb->posts}.ID AND dh_search_term.name LIKE %s))",
+					"(EXISTS (SELECT 1 FROM {$wpdb->postmeta} AS dh_search_meta WHERE dh_search_meta.post_id = {$wpdb->posts}.ID AND dh_search_meta.meta_key IN ('_dixcoverhub_opportunity_data','_dixcoverhub_location','_dixcoverhub_provider_name','_dixcoverhub_employment_type') AND dh_search_meta.meta_value LIKE %s) OR EXISTS (SELECT 1 FROM {$wpdb->term_relationships} AS dh_search_rel INNER JOIN {$wpdb->term_taxonomy} AS dh_search_tax ON dh_search_tax.term_taxonomy_id = dh_search_rel.term_taxonomy_id INNER JOIN {$wpdb->terms} AS dh_search_term ON dh_search_term.term_id = dh_search_tax.term_id WHERE dh_search_rel.object_id = {$wpdb->posts}.ID AND dh_search_term.name LIKE %s) OR {$wpdb->posts}.post_excerpt LIKE %s)",
+					$like,
 					$like,
 					$like
 				);
@@ -248,34 +313,55 @@ final class DixcoverHub_Custom_UI_Archive {
 			remove_filter( 'posts_clauses', $deadline_order, 20 );
 		}
 
-		$featured = array();
-		if ( ! empty( $options['archive_sidebar_enabled'] ) ) {
-			$featured = get_posts(
-				array(
-					'post_type'           => 'post',
-					'post_status'         => 'publish',
-					'posts_per_page'      => 3,
-				'post__not_in'        => wp_list_pluck( $query->posts, 'ID' ),
-				'meta_key'            => '_dixcoverhub_featured',
-				'meta_value'          => '1',
-				'ignore_sticky_posts' => true,
-				'no_found_rows'       => true,
-			)
-			);
-			if ( count( $featured ) < 3 ) {
-				$featured = array_merge(
-					$featured,
-					get_posts(
-						array(
-							'post_type'           => 'post',
-							'post_status'         => 'publish',
-							'posts_per_page'      => 3 - count( $featured ),
-							'post__not_in'        => array_merge( wp_list_pluck( $query->posts, 'ID' ), wp_list_pluck( $featured, 'ID' ) ),
-							'ignore_sticky_posts' => true,
-							'no_found_rows'       => true,
-						)
+		$sidebar_lists = array( 'featured' => array(), 'trending' => array(), 'latest' => array() );
+		$sidebar_sections_enabled = ! empty( $options['archive_sidebar_enabled'] ) && ( ! empty( $options['archive_sidebar_featured_enabled'] ) || ! empty( $options['archive_sidebar_trending_enabled'] ) || ! empty( $options['archive_sidebar_latest_enabled'] ) );
+		if ( $sidebar_sections_enabled ) {
+			$sidebar_limit = 0;
+			foreach ( array( 'featured', 'trending', 'latest' ) as $sidebar_section ) {
+				if ( ! empty( $options[ 'archive_sidebar_' . $sidebar_section . '_enabled' ] ) ) {
+					$sidebar_limit += absint( $options[ 'archive_sidebar_' . $sidebar_section . '_count' ] );
+				}
+			}
+			$sidebar_query_args = $query_args;
+			$sidebar_query_args['posts_per_page'] = min( 36, max( 1, $sidebar_limit ) );
+			$sidebar_query_args['paged']          = 1;
+			$sidebar_query_args['orderby']        = 'date';
+			$sidebar_query_args['order']          = 'DESC';
+			unset( $sidebar_query_args['dh_archive_sort_deadline'] );
+			if ( $extended_search ) {
+				add_filter( 'posts_search', $extended_search, 20, 2 );
+			}
+			$sidebar_query = new WP_Query( $sidebar_query_args );
+			if ( $extended_search ) {
+				remove_filter( 'posts_search', $extended_search, 20 );
+			}
+			$sidebar_pool = $sidebar_query->posts;
+			if ( ! $sidebar_pool ) {
+				$sidebar_pool = get_posts(
+					array(
+						'post_type'           => 'post',
+						'post_status'         => 'publish',
+						'posts_per_page'      => min( 36, max( 1, $sidebar_limit ) ),
+						'ignore_sticky_posts' => true,
+						'no_found_rows'       => true,
+						'orderby'             => 'date',
+						'order'               => 'DESC',
 					)
 				);
+			}
+			if ( ! empty( $options['archive_sidebar_featured_enabled'] ) ) {
+				$explicitly_featured = array_values( array_filter( $sidebar_pool, static function ( $post ) { return '1' === (string) get_post_meta( $post->ID, '_dixcoverhub_featured', true ); } ) );
+				$sidebar_lists['featured'] = array_slice( $explicitly_featured ? $explicitly_featured : $sidebar_pool, 0, absint( $options['archive_sidebar_featured_count'] ) );
+			}
+			$used_ids = wp_list_pluck( $sidebar_lists['featured'], 'ID' );
+			if ( ! empty( $options['archive_sidebar_trending_enabled'] ) ) {
+				$remaining = array_values( array_filter( $sidebar_pool, static function ( $post ) use ( $used_ids ) { return ! in_array( (int) $post->ID, array_map( 'intval', $used_ids ), true ); } ) );
+				$sidebar_lists['trending'] = array_slice( $remaining, 0, absint( $options['archive_sidebar_trending_count'] ) );
+			}
+			$used_ids = array_merge( $used_ids, wp_list_pluck( $sidebar_lists['trending'], 'ID' ) );
+			if ( ! empty( $options['archive_sidebar_latest_enabled'] ) ) {
+				$remaining = array_values( array_filter( $sidebar_pool, static function ( $post ) use ( $used_ids ) { return ! in_array( (int) $post->ID, array_map( 'intval', $used_ids ), true ); } ) );
+				$sidebar_lists['latest'] = array_slice( $remaining, 0, absint( $options['archive_sidebar_latest_count'] ) );
 			}
 		}
 
@@ -286,17 +372,17 @@ final class DixcoverHub_Custom_UI_Archive {
 		<div class="dh-opportunity-archive" style="<?php echo esc_attr( $style ); ?>">
 			<header class="dh-opportunity-archive-hero"><div><h1><?php echo esc_html( $filters['category_name'] ? $filters['category_name'] : $options['archive_heading'] ); ?></h1><p><?php echo esc_html( $options['archive_intro'] ); ?></p></div></header>
 			<div class="dh-opportunity-archive-layout">
-				<main class="dh-opportunity-archive-main">
+				<<?php echo esc_html( $archive_main_tag ); ?> class="dh-opportunity-archive-main">
 					<form class="dh-opportunity-filters" method="get" action="<?php echo esc_url( $base_url ); ?>">
 						<div class="dh-opportunity-search-row">
-							<label class="dh-opportunity-search"><span class="screen-reader-text"><?php esc_html_e( 'Search opportunities', 'dixcoverhub-custom-ui' ); ?></span><input type="search" name="dh_s" value="<?php echo esc_attr( $filters['search'] ); ?>" placeholder="<?php esc_attr_e( 'Search titles, categories, locations, or keywords?', 'dixcoverhub-custom-ui' ); ?>" /><button type="submit" aria-label="<?php esc_attr_e( 'Search', 'dixcoverhub-custom-ui' ); ?>"><?php echo DixcoverHub_Custom_UI_Icons::svg( 'Compass01Icon', 'dh-archive-icon' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- safe bundled SVG. ?></button></label>
+							<div class="dh-opportunity-search"><label class="screen-reader-text" for="dh-archive-search-input"><?php esc_html_e( 'Search opportunities', 'dixcoverhub-custom-ui' ); ?></label><input id="dh-archive-search-input" type="search" name="dh_s" value="<?php echo esc_attr( $filters['search'] ); ?>" placeholder="<?php esc_attr_e( 'Search titles, categories, locations, or keywords…', 'dixcoverhub-custom-ui' ); ?>" data-dh-archive-search /><button class="dh-opportunity-search-clear" type="button" data-dh-search-clear aria-label="<?php esc_attr_e( 'Clear search', 'dixcoverhub-custom-ui' ); ?>" hidden>×</button><button class="dh-opportunity-search-submit" type="submit" aria-label="<?php esc_attr_e( 'Search', 'dixcoverhub-custom-ui' ); ?>"><?php echo DixcoverHub_Custom_UI_Icons::svg( 'Compass01Icon', 'dh-archive-icon' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- safe bundled SVG. ?></button></div>
 						</div>
 						<section class="dh-opportunity-filter-refine" aria-label="<?php esc_attr_e( 'Refine opportunities', 'dixcoverhub-custom-ui' ); ?>">
 							<div class="dh-opportunity-filter-heading"><div><span><?php esc_html_e( 'REFINE RESULTS', 'dixcoverhub-custom-ui' ); ?></span><p><?php esc_html_e( 'Narrow the list to what you are looking for.', 'dixcoverhub-custom-ui' ); ?></p></div></div>
 							<div class="dh-opportunity-filter-grid">
 								<?php
 								$category_options = array( '' => __( 'All categories', 'dixcoverhub-custom-ui' ) );
-								foreach ( self::hierarchical_terms( $terms['categories'] ) as $category_row ) {
+				foreach ( self::hierarchical_terms( $terms['categories'], $category_counts ) as $category_row ) {
 									$term   = $category_row['term'];
 									$prefix = $category_row['depth'] ? str_repeat( '— ', min( 4, $category_row['depth'] ) ) : '';
 									$category_options[ $term->slug ] = $prefix . $term->name . ' (' . ( $category_counts[ $term->term_id ] ?? $term->count ) . ')';
@@ -320,13 +406,36 @@ final class DixcoverHub_Custom_UI_Archive {
 							<div class="dh-opportunity-filter-actions"><button class="dh-opportunity-filter-submit" type="submit"><?php esc_html_e( 'Apply filters', 'dixcoverhub-custom-ui' ); ?></button><a class="dh-opportunity-filter-reset" href="<?php echo esc_url( $base_url ); ?>"><?php esc_html_e( 'Clear all', 'dixcoverhub-custom-ui' ); ?></a></div>
 						</section>
 					</form>
-					<?php if ( $terms['categories'] ) : ?><nav class="dh-opportunity-category-chips" aria-label="<?php esc_attr_e( 'Popular categories', 'dixcoverhub-custom-ui' ); ?>"><a class="<?php echo $filters['category'] ? '' : 'is-active'; ?>" href="<?php echo esc_url( self::category_url( $base_url, $filters, '' ) ); ?>"><?php esc_html_e( 'All', 'dixcoverhub-custom-ui' ); ?></a><?php foreach ( array_slice( array_values( array_filter( $terms['categories'], static function ( $term ) { return ! $term->parent; } ) ), 0, 9 ) as $term ) : ?><a class="<?php echo $filters['category'] === $term->slug ? 'is-active' : ''; ?>" href="<?php echo esc_url( self::category_url( $base_url, $filters, $term->slug ) ); ?>"><?php echo esc_html( $term->name ); ?><span><?php echo absint( $category_counts[ $term->term_id ] ?? $term->count ); ?></span></a><?php endforeach; ?></nav><?php endif; ?>
-					<div class="dh-opportunity-results-heading"><p><?php echo esc_html( sprintf( _n( '%s opportunity', '%s opportunities', (int) $query->found_posts, 'dixcoverhub-custom-ui' ), number_format_i18n( $query->found_posts ) ) ); ?></p><?php if ( $filters['search'] || $filters['category'] || $filters['type'] || $filters['mode'] || $filters['location'] || $filters['deadline'] ) : ?><span><?php esc_html_e( 'Filtered results', 'dixcoverhub-custom-ui' ); ?></span><?php endif; ?></div>
+					<?php if ( $terms['categories'] ) : ?><div class="dh-opportunity-category-strip" data-dh-category-strip><button class="dh-opportunity-category-scroll is-previous" type="button" data-dh-category-scroll="-1" aria-label="<?php esc_attr_e( 'Scroll popular categories left', 'dixcoverhub-custom-ui' ); ?>" hidden><svg aria-hidden="true" viewBox="0 0 20 20"><path d="m12.5 4.5-5.5 5.5 5.5 5.5" /></svg></button><nav class="dh-opportunity-category-chips" aria-label="<?php esc_attr_e( 'Popular categories', 'dixcoverhub-custom-ui' ); ?>" data-dh-category-list><a class="<?php echo $filters['category'] ? '' : 'is-active'; ?>" href="<?php echo esc_url( self::category_url( $base_url, $filters, '' ) ); ?>"><?php esc_html_e( 'All', 'dixcoverhub-custom-ui' ); ?></a><?php foreach ( array_slice( $popular_categories, 0, 9 ) as $term ) : ?><a class="<?php echo $active_category_parent_slug === $term->slug ? 'is-active' : ''; ?>" href="<?php echo esc_url( self::category_url( $base_url, $filters, $term->slug ) ); ?>"><?php echo esc_html( $term->name ); ?><span><?php echo absint( $category_counts[ $term->term_id ] ?? $term->count ); ?></span></a><?php endforeach; ?></nav><button class="dh-opportunity-category-scroll is-next" type="button" data-dh-category-scroll="1" aria-label="<?php esc_attr_e( 'Scroll popular categories right', 'dixcoverhub-custom-ui' ); ?>" hidden><svg aria-hidden="true" viewBox="0 0 20 20"><path d="m7.5 4.5 5.5 5.5-5.5 5.5" /></svg></button></div><?php endif; ?>
+					<div class="dh-opportunity-results-heading"><p data-dh-results-count data-loaded="<?php echo absint( $query->post_count ); ?>" data-total="<?php echo absint( $query->found_posts ); ?>" aria-live="polite"><?php echo esc_html( sprintf( __( 'Showing %1$s of %2$s listings', 'dixcoverhub-custom-ui' ), number_format_i18n( $query->post_count ), number_format_i18n( $query->found_posts ) ) ); ?></p><?php if ( $filters['search'] || $filters['category'] || $filters['type'] || $filters['mode'] || $filters['location'] || $filters['deadline'] || 'newest' !== $filters['sort'] ) : ?><span><?php esc_html_e( 'Filtered results', 'dixcoverhub-custom-ui' ); ?></span><?php endif; ?></div>
 					<?php if ( $query->have_posts() ) : ?><div class="dh-opportunity-list"><?php while ( $query->have_posts() ) : $query->the_post(); self::render_opportunity_card( get_the_ID(), $filters ); endwhile; ?></div>
-						<?php self::pagination( $query, $filters, $base_url ); ?>
+						<?php self::load_more( $query, $filters, $base_url ); ?>
 					<?php else : ?><div class="dh-opportunity-empty"><span aria-hidden="true">⌕</span><h2><?php esc_html_e( 'No opportunities match these filters', 'dixcoverhub-custom-ui' ); ?></h2><p><?php esc_html_e( 'Try changing a filter or clearing your search to see more listings.', 'dixcoverhub-custom-ui' ); ?></p><a href="<?php echo esc_url( $base_url ); ?>"><?php esc_html_e( 'Reset all filters', 'dixcoverhub-custom-ui' ); ?></a></div><?php endif; wp_reset_postdata(); ?>
-				</main>
-				<?php if ( ! empty( $options['archive_sidebar_enabled'] ) ) : ?><aside class="dh-opportunity-archive-sidebar"><section><header><div><p><?php esc_html_e( "Editor's selection", 'dixcoverhub-custom-ui' ); ?></p><h2><?php esc_html_e( 'Featured Opportunities', 'dixcoverhub-custom-ui' ); ?></h2></div><a href="<?php echo esc_url( $base_url ); ?>"><?php esc_html_e( 'View all', 'dixcoverhub-custom-ui' ); ?></a></header><?php foreach ( $featured as $item ) : $image = get_the_post_thumbnail_url( $item, 'thumbnail' ); $item_cats = get_the_category( $item->ID ); $item_data = get_post_meta( $item->ID, '_dixcoverhub_opportunity_data', true ); ?><a class="dh-opportunity-featured-item" href="<?php echo esc_url( get_permalink( $item ) ); ?>"><span class="dh-opportunity-featured-image"><?php if ( $image ) : ?><img src="<?php echo esc_url( $image ); ?>" alt="" loading="lazy" /><?php else : ?><span aria-hidden="true">✦</span><?php endif; ?></span><span><small><?php echo esc_html( $item_cats ? $item_cats[0]->name : __( 'Opportunity', 'dixcoverhub-custom-ui' ) ); ?></small><strong><?php echo esc_html( get_the_title( $item ) ); ?></strong><?php if ( is_array( $item_data ) && ! empty( $item_data['provider_name'] ) ) : ?><em><?php echo esc_html( $item_data['provider_name'] ); ?><?php if ( ! empty( $item_data['location'] ) ) : ?> / <?php echo esc_html( $item_data['location'] ); ?><?php endif; ?></em><?php endif; ?></span></a><?php endforeach; ?><?php if ( ! $featured ) : ?><p class="dh-opportunity-sidebar-empty"><?php esc_html_e( 'New listings will appear here as they are published.', 'dixcoverhub-custom-ui' ); ?></p><?php endif; ?></section></aside><?php endif; ?>
+				</<?php echo esc_html( $archive_main_tag ); ?>>
+					<?php if ( ! empty( $options['archive_sidebar_enabled'] ) && $sidebar_sections_enabled ) : ?>
+						<aside class="dh-opportunity-archive-sidebar" aria-label="<?php esc_attr_e( 'More opportunities', 'dixcoverhub-custom-ui' ); ?>">
+							<div class="dh-opportunity-archive-sidebar-stack">
+								<?php if ( ! empty( $options['archive_sidebar_featured_enabled'] ) ) : ?>
+									<section class="dh-opportunity-sidebar-section dh-opportunity-sidebar-section--featured">
+										<header><div><p><?php esc_html_e( "Editor's selection", 'dixcoverhub-custom-ui' ); ?></p><h2><?php esc_html_e( 'Featured Opportunities', 'dixcoverhub-custom-ui' ); ?></h2></div><a href="<?php echo esc_url( $base_url ); ?>"><?php esc_html_e( 'View all', 'dixcoverhub-custom-ui' ); ?></a></header>
+										<?php if ( $sidebar_lists['featured'] ) : self::render_sidebar_group_items( $sidebar_lists['featured'], 'featured' ); else : ?><p class="dh-opportunity-sidebar-empty"><?php esc_html_e( 'New listings will appear here as they are published.', 'dixcoverhub-custom-ui' ); ?></p><?php endif; ?>
+									</section>
+								<?php endif; ?>
+								<?php if ( ! empty( $options['archive_sidebar_trending_enabled'] ) && $sidebar_lists['trending'] ) : ?>
+									<section class="dh-opportunity-sidebar-section dh-opportunity-sidebar-section--trending">
+										<header><div><p><?php echo DixcoverHub_Custom_UI_Icons::svg( 'BarChartIcon', 'dh-opportunity-sidebar-heading-icon' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- bundled icon. ?><?php esc_html_e( "What's moving", 'dixcoverhub-custom-ui' ); ?></p><h2><?php esc_html_e( 'Trending', 'dixcoverhub-custom-ui' ); ?></h2></div><a href="<?php echo esc_url( $base_url ); ?>"><?php esc_html_e( 'View all', 'dixcoverhub-custom-ui' ); ?></a></header>
+										<?php self::render_sidebar_group_items( $sidebar_lists['trending'], 'trending' ); ?>
+									</section>
+								<?php endif; ?>
+								<?php if ( ! empty( $options['archive_sidebar_latest_enabled'] ) && $sidebar_lists['latest'] ) : ?>
+									<section class="dh-opportunity-sidebar-section dh-opportunity-sidebar-section--latest">
+										<header><div><p><?php echo DixcoverHub_Custom_UI_Icons::svg( 'CalendarDaysIcon', 'dh-opportunity-sidebar-heading-icon' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- bundled icon. ?><?php esc_html_e( 'Just in', 'dixcoverhub-custom-ui' ); ?></p><h2><?php esc_html_e( 'Latest Opportunities', 'dixcoverhub-custom-ui' ); ?></h2></div></header>
+										<?php self::render_sidebar_group_items( $sidebar_lists['latest'], 'latest' ); ?>
+									</section>
+								<?php endif; ?>
+							</div>
+						</aside>
+					<?php endif; ?>
 			</div>
 		</div>
 		<?php
@@ -416,7 +525,7 @@ final class DixcoverHub_Custom_UI_Archive {
 	}
 
 	/** Return category terms in parent-first order with a stable visual depth. */
-	private static function hierarchical_terms( $terms ) {
+	private static function hierarchical_terms( $terms, $counts = array() ) {
 		$term_ids = array();
 		foreach ( $terms as $term ) {
 			$term_ids[ (int) $term->term_id ] = true;
@@ -433,8 +542,10 @@ final class DixcoverHub_Custom_UI_Archive {
 		foreach ( $children as &$siblings ) {
 			usort(
 				$siblings,
-				static function ( $left, $right ) {
-					return strnatcasecmp( $left->name, $right->name );
+				static function ( $left, $right ) use ( $counts ) {
+					$left_count  = (int) ( $counts[ $left->term_id ] ?? $left->count );
+					$right_count = (int) ( $counts[ $right->term_id ] ?? $right->count );
+					return $left_count === $right_count ? strnatcasecmp( $left->name, $right->name ) : $right_count <=> $left_count;
 				}
 			);
 		}
@@ -531,10 +642,65 @@ final class DixcoverHub_Custom_UI_Archive {
 		return add_query_arg( $args, $base_url );
 	}
 
+	/** Use the featured image, then the first image attached to the post. */
+	private static function post_image_url( $post_id, $size ) {
+		$image = get_the_post_thumbnail_url( $post_id, $size );
+		if ( $image ) {
+			return $image;
+		}
+		foreach ( get_attached_media( 'image', $post_id ) as $attachment ) {
+			$image = wp_get_attachment_image_url( $attachment->ID, $size );
+			if ( $image ) {
+				return $image;
+			}
+		}
+		return '';
+	}
+
+	/** Render one reference-style archive sidebar list item. */
+	private static function render_sidebar_group_items( $posts, $group ) {
+		foreach ( (array) $posts as $index => $item ) {
+			$item_id   = (int) $item->ID;
+			$categories = get_the_category( $item_id );
+			$category   = $categories ? $categories[0]->name : __( 'Opportunity', 'dixcoverhub-custom-ui' );
+			$data       = get_post_meta( $item_id, '_dixcoverhub_opportunity_data', true );
+			$data       = is_array( $data ) ? $data : array();
+			$provider   = sanitize_text_field( (string) ( $data['provider_name'] ?? '' ) );
+			$location   = sanitize_text_field( (string) ( $data['location'] ?? '' ) );
+			if ( '' === $provider ) {
+				$provider = sanitize_text_field( (string) get_post_meta( $item_id, '_dixcoverhub_provider_name', true ) );
+			}
+			if ( '' === $location ) {
+				$location = sanitize_text_field( (string) get_post_meta( $item_id, '_dixcoverhub_location', true ) );
+			}
+			$meta       = implode( ' / ', array_filter( array( $provider, $location ) ) );
+			$permalink  = get_permalink( $item_id );
+			$date       = get_the_date( 'M j', $item_id );
+			$datetime   = get_the_date( DATE_W3C, $item_id );
+			if ( 'featured' === $group ) {
+				$image = self::post_image_url( $item_id, 'thumbnail' );
+				?>
+				<a class="dh-opportunity-featured-item" href="<?php echo esc_url( $permalink ); ?>">
+					<span class="dh-opportunity-featured-image"><?php if ( $image ) : ?><img src="<?php echo esc_url( $image ); ?>" alt="" loading="lazy" /><?php else : ?><span aria-hidden="true">✦</span><?php endif; ?></span>
+					<span class="dh-opportunity-sidebar-item-copy"><span class="dh-opportunity-sidebar-item-meta"><small><?php echo esc_html( $category ); ?></small><time datetime="<?php echo esc_attr( $datetime ); ?>"><?php echo esc_html( $date ); ?></time></span><strong><?php echo esc_html( get_the_title( $item_id ) ); ?></strong><?php if ( $meta ) : ?><em><?php echo esc_html( $meta ); ?></em><?php endif; ?></span>
+				</a>
+				<?php
+			} elseif ( 'trending' === $group ) {
+				?>
+				<a class="dh-opportunity-trending-item" href="<?php echo esc_url( $permalink ); ?>"><span class="dh-opportunity-trending-rank"><?php echo esc_html( sprintf( '%02d', $index + 1 ) ); ?></span><span class="dh-opportunity-trending-copy"><span class="dh-opportunity-sidebar-item-meta"><small><?php echo esc_html( $category ); ?></small><time datetime="<?php echo esc_attr( $datetime ); ?>"><?php echo esc_html( $date ); ?></time></span><strong><?php echo esc_html( get_the_title( $item_id ) ); ?></strong><?php if ( $meta ) : ?><em><?php echo esc_html( $meta ); ?></em><?php endif; ?></span></a>
+				<?php
+			} else {
+				?>
+				<a class="dh-opportunity-latest-item" href="<?php echo esc_url( $permalink ); ?>"><time datetime="<?php echo esc_attr( $datetime ); ?>"><?php echo esc_html( $date ); ?></time><strong><?php echo esc_html( get_the_title( $item_id ) ); ?></strong><?php echo DixcoverHub_Custom_UI_Icons::svg( 'ArrowUpRight01Icon', 'dh-opportunity-latest-arrow' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- bundled icon. ?></a>
+				<?php
+			}
+		}
+	}
+
 	/** Render one compact opportunity row. */
 	private static function render_opportunity_card( $post_id, $filters ) {
 		$post     = get_post( $post_id );
-		$image    = get_the_post_thumbnail_url( $post_id, 'medium' );
+		$image    = self::post_image_url( $post_id, 'medium' );
 		$categories = get_the_category( $post_id );
 		$terms = array();
 		foreach ( array( 'dh_opportunity_type', 'dh_opportunity_mode' ) as $taxonomy ) {
@@ -550,7 +716,16 @@ final class DixcoverHub_Custom_UI_Archive {
 		if ( ! $location_names && ! empty( $opportunity['location'] ) ) {
 			$location_names[] = sanitize_text_field( $opportunity['location'] );
 		}
-		$excerpt = get_the_excerpt( $post );
+		$excerpt = trim( (string) get_post_field( 'post_excerpt', $post_id ) );
+		if ( '' === $excerpt ) {
+			foreach ( array( 'excerpt', 'summary' ) as $summary_key ) {
+				if ( isset( $opportunity[ $summary_key ] ) && is_scalar( $opportunity[ $summary_key ] ) && trim( (string) $opportunity[ $summary_key ] ) ) {
+					$excerpt = trim( (string) $opportunity[ $summary_key ] );
+					break;
+				}
+			}
+		}
+		$excerpt = wp_strip_all_tags( $excerpt );
 		?>
 		<article class="dh-opportunity-card">
 			<div class="dh-opportunity-card-media"><a href="<?php echo esc_url( get_permalink( $post ) ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'View %s', 'dixcoverhub-custom-ui' ), get_the_title( $post ) ) ); ?>"><?php if ( $image ) : ?><img src="<?php echo esc_url( $image ); ?>" alt="<?php echo esc_attr( get_post_meta( get_post_thumbnail_id( $post_id ), '_wp_attachment_image_alt', true ) ?: get_the_title( $post ) ); ?>" loading="lazy" /><?php else : ?><span class="dh-opportunity-card-placeholder"><?php echo esc_html( $categories ? $categories[0]->name : __( 'Opportunity', 'dixcoverhub-custom-ui' ) ); ?></span><?php endif; ?></a><a class="dh-opportunity-card-view" href="<?php echo esc_url( get_permalink( $post ) ); ?>"><?php esc_html_e( 'View', 'dixcoverhub-custom-ui' ); ?> <span aria-hidden="true">↗</span></a></div>
@@ -559,10 +734,11 @@ final class DixcoverHub_Custom_UI_Archive {
 		<?php
 	}
 
-	/** Render pagination while preserving the active filter state. */
-	private static function pagination( $query, $filters, $base_url ) {
+	/** Progressive show-more link with all active filters retained. */
+	private static function load_more( $query, $filters, $base_url ) {
 		$total_pages = (int) $query->max_num_pages;
-		if ( $total_pages < 2 ) {
+		$current     = min( max( 1, (int) $filters['page'] ), max( 1, $total_pages ) );
+		if ( $current >= $total_pages ) {
 			return;
 		}
 		$filter_args = array(
@@ -570,15 +746,12 @@ final class DixcoverHub_Custom_UI_Archive {
 			'dh_mode' => $filters['mode'], 'dh_location' => $filters['location'], 'dh_deadline' => $filters['deadline'], 'dh_sort' => $filters['sort'],
 		);
 		$filter_args = array_filter( $filter_args, static function ( $value ) { return '' !== (string) $value && 'newest' !== $value; } );
-		$current = min( $filters['page'], $total_pages );
-		$start   = max( 1, $current - 2 );
-		$end     = min( $total_pages, $current + 2 );
+		$next_url = add_query_arg( array_merge( $filter_args, array( 'dh_page' => $current + 1 ) ), $base_url );
 		?>
-		<nav class="dh-opportunity-pagination" aria-label="<?php esc_attr_e( 'Opportunity pages', 'dixcoverhub-custom-ui' ); ?>">
-			<?php if ( $current > 1 ) : ?><a href="<?php echo esc_url( add_query_arg( array_merge( $filter_args, array( 'dh_page' => $current - 1 ) ), $base_url ) ); ?>" rel="prev">← <span><?php esc_html_e( 'Previous', 'dixcoverhub-custom-ui' ); ?></span></a><?php endif; ?>
-			<?php for ( $page = $start; $page <= $end; $page++ ) : ?><a class="<?php echo $page === $current ? 'is-current' : ''; ?>" href="<?php echo esc_url( add_query_arg( array_merge( $filter_args, array( 'dh_page' => $page ) ), $base_url ) ); ?>" <?php echo $page === $current ? 'aria-current="page"' : ''; ?>><?php echo absint( $page ); ?></a><?php endfor; ?>
-			<?php if ( $current < $total_pages ) : ?><a href="<?php echo esc_url( add_query_arg( array_merge( $filter_args, array( 'dh_page' => $current + 1 ) ), $base_url ) ); ?>" rel="next"><span><?php esc_html_e( 'Next', 'dixcoverhub-custom-ui' ); ?></span> →</a><?php endif; ?>
+		<nav class="dh-opportunity-load-more-wrap" aria-label="<?php esc_attr_e( 'More opportunities', 'dixcoverhub-custom-ui' ); ?>">
+			<a class="dh-opportunity-load-more" href="<?php echo esc_url( $next_url ); ?>" rel="next" data-dh-load-more><span data-dh-load-more-label><?php esc_html_e( 'Show more listings', 'dixcoverhub-custom-ui' ); ?></span><svg aria-hidden="true" viewBox="0 0 20 20"><path d="M4 10h11m-4-4 4 4-4 4" /></svg></a>
 		</nav>
 		<?php
 	}
+
 }

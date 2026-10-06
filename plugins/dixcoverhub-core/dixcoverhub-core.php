@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DixcoverHub Core
  * Description: Shared services and extension points for DixcoverHub plugins.
- * Version: 0.3.6
+ * Version: 0.3.8
  * Requires at least: 6.4
  * Requires PHP: 8.0
  * Text Domain: dixcoverhub-core
@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'DIXCOVERHUB_CORE_VERSION', '0.3.6' );
+define( 'DIXCOVERHUB_CORE_VERSION', '0.3.8' );
 define( 'DIXCOVERHUB_CORE_FILE', __FILE__ );
 
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-dixcoverhub-analytics.php';

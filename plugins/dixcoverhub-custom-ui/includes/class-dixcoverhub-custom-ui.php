@@ -25,6 +25,7 @@ final class DixcoverHub_Custom_UI {
 		add_action( 'admin_init', array( __CLASS__, 'register_settings' ) );
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'enqueue_admin_assets' ) );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_assets' ) );
+		add_filter( 'template_include', array( __CLASS__, 'maybe_home_template' ), 8 );
 		add_action( 'wp_body_open', array( __CLASS__, 'render_at_body_open' ), 5 );
 		add_action( 'wp_footer', array( __CLASS__, 'render_bottom_navigation' ), 9 );
 		add_filter( 'body_class', array( __CLASS__, 'add_bottom_navigation_body_class' ) );
@@ -37,6 +38,17 @@ final class DixcoverHub_Custom_UI {
 	/** Default first-version navbar options. */
 	public static function defaults() {
 		return array(
+			'home_enabled'             => 0,
+			'home_title_before'        => 'Discover Your Next',
+			'home_title_highlight'     => 'Opportunity',
+			'home_title_after'         => 'Here.',
+			'home_description'         => 'Discover verified scholarships, full-time jobs, internships, and grants from world-class companies and institutions worldwide.',
+			'home_cta_label'           => 'Explore opportunities',
+			'home_cta_url'             => '/opportunities/',
+			'home_category_strip'      => 1,
+			'home_deck_count'           => 10,
+			'home_background_color'    => '#f4f7fb',
+			'home_highlight_color'     => '#611f69',
 			'enabled'                  => 0,
 			'automatic_display'        => 1,
 			'replace_block_header'     => 1,
@@ -95,15 +107,28 @@ final class DixcoverHub_Custom_UI {
 			'mobile_cta_label'         => 'Explore Opportunities',
 			'single_post_enabled'      => 0,
 			'single_post_sidebar_enabled' => 1,
+			'single_post_sidebar_featured_enabled' => 1,
+			'single_post_sidebar_trending_enabled' => 1,
+			'single_post_sidebar_latest_enabled' => 1,
 			'single_post_show_apply'   => 1,
 			'single_post_show_summary' => 1,
 			'single_post_show_faqs'    => 1,
+			'single_post_show_tags'    => 1,
 			'single_post_show_related' => 1,
-			'single_post_sidebar_count' => 4,
+			'single_post_protect_content' => 0,
+			'single_post_sidebar_count' => 3,
+			'single_post_sidebar_trending_count' => 4,
+			'single_post_sidebar_latest_count' => 5,
 			'single_post_width'        => 1100,
 			'single_post_header_color' => '#f8f2fa',
 			'archive_enabled'          => 0,
 			'archive_sidebar_enabled'  => 1,
+			'archive_sidebar_featured_enabled' => 1,
+			'archive_sidebar_trending_enabled' => 1,
+			'archive_sidebar_latest_enabled' => 1,
+			'archive_sidebar_featured_count' => 3,
+			'archive_sidebar_trending_count' => 4,
+			'archive_sidebar_latest_count' => 5,
 			'archive_heading'          => 'Explore Opportunities',
 			'archive_intro'            => 'Browse jobs, scholarships, internships, funding, fellowships, and programmes.',
 			'archive_posts_per_page'   => 18,
@@ -156,7 +181,7 @@ final class DixcoverHub_Custom_UI {
 				array( 'heading' => 'Explore', 'description' => '', 'links' => array( array( 'label' => 'All opportunities', 'url' => '/opportunities/', 'icon' => '', 'new_tab' => 0 ), array( 'label' => 'Jobs', 'url' => '/opportunities?category=job', 'icon' => '', 'new_tab' => 0 ), array( 'label' => 'Deadlines', 'url' => '/deadlines/', 'icon' => '', 'new_tab' => 0 ) ) ),
 				array( 'heading' => 'DixcoverHub', 'description' => '', 'links' => array( array( 'label' => 'About us', 'url' => '/about/', 'icon' => '', 'new_tab' => 0 ), array( 'label' => 'Contact', 'url' => '/contact/', 'icon' => '', 'new_tab' => 0 ), array( 'label' => 'Log in', 'url' => '/login/', 'icon' => '', 'new_tab' => 0 ) ) ),
 			),
-			'footer_social_links'     => array( array( 'label' => 'WhatsApp Community', 'url' => 'https://whatsapp.com/channel/0029Va9uQXIAYlUP7x3kDQ2T', 'icon' => 'Compass01Icon', 'new_tab' => 1 ) ),
+			'footer_social_links'     => array( array( 'label' => 'WhatsApp Community', 'url' => 'https://whatsapp.com/channel/0029Va9uQXIAYlUP7x3kDQ2T', 'icon' => 'WhatsappIcon', 'new_tab' => 1 ) ),
 			'footer_background_color' => '#211827',
 			'footer_text_color'       => '#ffffff',
 			'footer_muted_color'      => '#c9bfcd',
@@ -246,7 +271,7 @@ final class DixcoverHub_Custom_UI {
 			return is_scalar( $value ) ? (string) $value : '';
 		};
 
-		$checkboxes = array( 'enabled', 'automatic_display', 'replace_block_header', 'sticky', 'transparent', 'show_wordmark', 'show_counts', 'show_login', 'manual_nav_enabled', 'bottom_nav_enabled', 'single_post_enabled', 'single_post_sidebar_enabled', 'single_post_show_apply', 'single_post_show_summary', 'single_post_show_faqs', 'single_post_show_related', 'archive_enabled', 'archive_sidebar_enabled', 'deadline_page_enabled', 'deadline_page_sidebar_enabled', 'footer_enabled', 'footer_automatic', 'footer_replace_theme', 'footer_show_brand', 'footer_show_social_links', 'footer_show_wordmark', 'footer_cta_enabled', 'footer_banner_enabled', 'footer_banner_primary_new_tab', 'footer_banner_secondary_new_tab', 'logo_enabled', 'fonts_enabled', 'popup_enabled' );
+		$checkboxes = array( 'home_enabled', 'home_category_strip', 'enabled', 'automatic_display', 'replace_block_header', 'sticky', 'transparent', 'show_wordmark', 'show_counts', 'show_login', 'manual_nav_enabled', 'bottom_nav_enabled', 'single_post_enabled', 'single_post_sidebar_enabled', 'single_post_sidebar_featured_enabled', 'single_post_sidebar_trending_enabled', 'single_post_sidebar_latest_enabled', 'single_post_show_apply', 'single_post_show_summary', 'single_post_show_faqs', 'single_post_show_tags', 'single_post_show_related', 'single_post_protect_content', 'archive_enabled', 'archive_sidebar_enabled', 'archive_sidebar_featured_enabled', 'archive_sidebar_trending_enabled', 'archive_sidebar_latest_enabled', 'deadline_page_enabled', 'deadline_page_sidebar_enabled', 'footer_enabled', 'footer_automatic', 'footer_replace_theme', 'footer_show_brand', 'footer_show_social_links', 'footer_show_wordmark', 'footer_cta_enabled', 'footer_banner_enabled', 'footer_banner_primary_new_tab', 'footer_banner_secondary_new_tab', 'logo_enabled', 'fonts_enabled', 'popup_enabled' );
 		foreach ( $checkboxes as $key ) {
 			if ( array_key_exists( $key, $input ) ) {
 				$output[ $key ] = empty( $input[ $key ] ) ? 0 : 1;
@@ -276,6 +301,11 @@ final class DixcoverHub_Custom_UI {
 			'bottom_nav_deadlines_description',
 			'archive_heading',
 			'archive_intro',
+			'home_title_before',
+			'home_title_highlight',
+			'home_title_after',
+			'home_description',
+			'home_cta_label',
 			'deadline_page_heading',
 			'deadline_page_intro',
 			'footer_description',
@@ -293,7 +323,7 @@ final class DixcoverHub_Custom_UI {
 			$output[ $key ] = '' !== $value ? $value : $defaults[ $key ];
 		}
 
-		$url_fields = array( 'logo_url', 'deadlines_url', 'about_url', 'contact_url', 'login_url', 'cta_url', 'bottom_nav_community_url', 'bottom_nav_jobs_url', 'bottom_nav_opportunities_url', 'bottom_nav_deadlines_url', 'footer_logo_url', 'footer_cta_url', 'footer_banner_primary_url', 'footer_banner_secondary_url' );
+		$url_fields = array( 'logo_url', 'deadlines_url', 'about_url', 'contact_url', 'login_url', 'cta_url', 'home_cta_url', 'bottom_nav_community_url', 'bottom_nav_jobs_url', 'bottom_nav_opportunities_url', 'bottom_nav_deadlines_url', 'footer_logo_url', 'footer_cta_url', 'footer_banner_primary_url', 'footer_banner_secondary_url' );
 		foreach ( $url_fields as $key ) {
 			$output[ $key ] = esc_url_raw( trim( $get_text( $key ) ) );
 		}
@@ -323,8 +353,14 @@ final class DixcoverHub_Custom_UI {
 			$output['primary_color'] = $defaults['primary_color'];
 		}
 		$output['single_post_sidebar_count'] = min( 8, max( 3, absint( $get_text( 'single_post_sidebar_count' ) ?: $defaults['single_post_sidebar_count'] ) ) );
+		$output['single_post_sidebar_trending_count'] = min( 8, max( 2, absint( $get_text( 'single_post_sidebar_trending_count' ) ?: $defaults['single_post_sidebar_trending_count'] ) ) );
+		$output['single_post_sidebar_latest_count'] = min( 8, max( 2, absint( $get_text( 'single_post_sidebar_latest_count' ) ?: $defaults['single_post_sidebar_latest_count'] ) ) );
 		$output['single_post_width'] = min( 1440, max( 960, absint( $get_text( 'single_post_width' ) ?: $defaults['single_post_width'] ) ) );
 		$output['archive_posts_per_page'] = min( 36, max( 6, absint( $get_text( 'archive_posts_per_page' ) ?: $defaults['archive_posts_per_page'] ) ) );
+		$output['home_deck_count'] = min( 20, max( 1, absint( $get_text( 'home_deck_count' ) ?: $defaults['home_deck_count'] ) ) );
+		$output['archive_sidebar_featured_count'] = min( 8, max( 1, absint( $get_text( 'archive_sidebar_featured_count' ) ?: $defaults['archive_sidebar_featured_count'] ) ) );
+		$output['archive_sidebar_trending_count'] = min( 8, max( 1, absint( $get_text( 'archive_sidebar_trending_count' ) ?: $defaults['archive_sidebar_trending_count'] ) ) );
+		$output['archive_sidebar_latest_count'] = min( 8, max( 1, absint( $get_text( 'archive_sidebar_latest_count' ) ?: $defaults['archive_sidebar_latest_count'] ) ) );
 		$output['deadline_page_results_per_page'] = min( 60, max( 6, absint( $get_text( 'deadline_page_results_per_page' ) ?: $defaults['deadline_page_results_per_page'] ) ) );
 		$output['deadline_page_preview_per_window'] = min( 18, max( 3, absint( $get_text( 'deadline_page_preview_per_window' ) ?: $defaults['deadline_page_preview_per_window'] ) ) );
 		$output['footer_content_width'] = min( 1440, max( 960, absint( $get_text( 'footer_content_width' ) ?: $defaults['footer_content_width'] ) ) );
@@ -334,7 +370,7 @@ final class DixcoverHub_Custom_UI {
 		if ( ! $output['single_post_header_color'] ) {
 			$output['single_post_header_color'] = $defaults['single_post_header_color'];
 		}
-		foreach ( array( 'navbar_surface_color', 'navbar_text_color', 'navbar_link_color', 'navbar_border_color', 'bottom_nav_accent_color', 'footer_background_color', 'footer_text_color', 'footer_muted_color', 'footer_link_color', 'footer_border_color', 'footer_banner_start_color', 'footer_banner_end_color', 'footer_banner_text_color', 'footer_banner_badge_bg_color', 'footer_banner_badge_text_color', 'footer_banner_button_bg_color', 'footer_banner_button_text_color', 'footer_banner_secondary_border_color' ) as $color_key ) {
+		foreach ( array( 'navbar_surface_color', 'navbar_text_color', 'navbar_link_color', 'navbar_border_color', 'bottom_nav_accent_color', 'home_background_color', 'home_highlight_color', 'footer_background_color', 'footer_text_color', 'footer_muted_color', 'footer_link_color', 'footer_border_color', 'footer_banner_start_color', 'footer_banner_end_color', 'footer_banner_text_color', 'footer_banner_badge_bg_color', 'footer_banner_badge_text_color', 'footer_banner_button_bg_color', 'footer_banner_button_text_color', 'footer_banner_secondary_border_color' ) as $color_key ) {
 			$output[ $color_key ] = sanitize_hex_color( $get_text( $color_key ) );
 			if ( ! $output[ $color_key ] ) {
 				$output[ $color_key ] = $defaults[ $color_key ];
@@ -510,7 +546,7 @@ final class DixcoverHub_Custom_UI {
 
 	/** Available curated Hugeicons selected in the Studio editor. */
 	private static function manual_icon_names() {
-		$icons = array( 'Home01Icon', 'Menu01Icon', 'LayoutBottomIcon', 'Image01Icon', 'TextFontIcon', 'Briefcase01Icon', 'Compass01Icon', 'ArrowDown01Icon', 'ArrowRight01Icon', 'ArrowUpRight01Icon', 'Cancel01Icon', 'CodeIcon', 'GraduationCapIcon', 'BarChartIcon', 'File01Icon', 'PaintbrushIcon', 'NetworkIcon', 'Money01Icon', 'HealthIcon', 'Rocket01Icon', 'Award01Icon', 'DiscountTag01Icon' );
+		$icons = array( 'Home01Icon', 'Menu01Icon', 'LayoutBottomIcon', 'Image01Icon', 'TextFontIcon', 'Briefcase01Icon', 'Compass01Icon', 'ArrowDown01Icon', 'ArrowRight01Icon', 'ArrowUpRight01Icon', 'Cancel01Icon', 'CodeIcon', 'GraduationCapIcon', 'BarChartIcon', 'File01Icon', 'PaintbrushIcon', 'NetworkIcon', 'Money01Icon', 'HealthIcon', 'Rocket01Icon', 'Award01Icon', 'DiscountTag01Icon', 'CalendarDaysIcon', 'Link01Icon', 'Linkedin01Icon', 'NewTwitterIcon', 'Share08Icon', 'UserRoundIcon', 'WhatsappIcon', 'Bookmark01Icon' );
 		return apply_filters( 'dixcoverhub/custom-ui/navbar-icons', $icons );
 	}
 
@@ -539,6 +575,7 @@ final class DixcoverHub_Custom_UI {
 
 		$sections = array(
 			'overview' => __( 'Overview', 'dixcoverhub-custom-ui' ),
+			'home'     => __( 'Home', 'dixcoverhub-custom-ui' ),
 			'navbar'   => __( 'Navbar', 'dixcoverhub-custom-ui' ),
 			'single-post' => __( 'Single Post', 'dixcoverhub-custom-ui' ),
 			'archive'     => __( 'Archive & Filters', 'dixcoverhub-custom-ui' ),
@@ -570,7 +607,9 @@ final class DixcoverHub_Custom_UI {
 				</nav>
 				<main class="dh-ui-studio-main">
 					<?php
-					if ( 'navbar' === $section ) {
+					if ( 'home' === $section ) {
+						self::render_home_workspace();
+					} elseif ( 'navbar' === $section ) {
 						self::render_navbar_workspace();
 					} elseif ( 'single-post' === $section ) {
 						self::render_single_post_workspace();
@@ -603,7 +642,7 @@ final class DixcoverHub_Custom_UI {
 
 	/** Render the selected bundled Hugeicons icon for a Studio section. */
 	private static function section_icon( $section ) {
-		$icons = array( 'overview' => 'Home01Icon', 'navbar' => 'Menu01Icon', 'single-post' => 'File01Icon', 'archive' => 'Compass01Icon', 'deadlines' => 'File01Icon', 'footer' => 'LayoutBottomIcon', 'logo' => 'Image01Icon', 'fonts' => 'TextFontIcon', 'popups' => 'DiscountTag01Icon' );
+		$icons = array( 'overview' => 'Home01Icon', 'home' => 'Home01Icon', 'navbar' => 'Menu01Icon', 'single-post' => 'File01Icon', 'archive' => 'Compass01Icon', 'deadlines' => 'File01Icon', 'footer' => 'LayoutBottomIcon', 'logo' => 'Image01Icon', 'fonts' => 'TextFontIcon', 'popups' => 'DiscountTag01Icon' );
 		return DixcoverHub_Custom_UI_Icons::svg( isset( $icons[ $section ] ) ? $icons[ $section ] : 'Home01Icon', 'dh-ui-icon' );
 	}
 
@@ -611,6 +650,7 @@ final class DixcoverHub_Custom_UI {
 	private static function render_overview( $sections ) {
 		$options = self::options();
 		$states  = array(
+			'home'        => ! empty( $options['home_enabled'] ),
 			'navbar'      => ! empty( $options['enabled'] ),
 			'single-post' => ! empty( $options['single_post_enabled'] ),
 			'archive'     => ! empty( $options['archive_enabled'] ),
@@ -623,7 +663,7 @@ final class DixcoverHub_Custom_UI {
 		?>
 		<div class="dh-ui-section-heading"><div><p class="dh-ui-eyebrow"><?php esc_html_e( 'YOUR DESIGN SYSTEM', 'dixcoverhub-custom-ui' ); ?></p><h2><?php esc_html_e( 'What are we shaping today?', 'dixcoverhub-custom-ui' ); ?></h2><p><?php esc_html_e( 'Choose a workspace to tune that part of DixcoverHub.', 'dixcoverhub-custom-ui' ); ?></p></div></div>
 		<div class="dh-ui-workspace-grid">
-			<?php foreach ( array( 'navbar', 'single-post', 'archive', 'deadlines', 'footer', 'logo', 'fonts', 'popups' ) as $slug ) : ?>
+			<?php foreach ( array( 'home', 'navbar', 'single-post', 'archive', 'deadlines', 'footer', 'logo', 'fonts', 'popups' ) as $slug ) : ?>
 				<a class="dh-ui-workspace-card" href="<?php echo esc_url( self::studio_url( $slug ) ); ?>"><span class="dh-ui-workspace-icon"><?php echo self::section_icon( $slug ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- generated from bundled, allow-listed Hugeicons data. ?></span><span class="dh-ui-workspace-copy"><strong><?php echo esc_html( $sections[ $slug ] ); ?></strong><small><?php echo esc_html( self::workspace_description( $slug ) ); ?></small></span><span class="dh-ui-workspace-status <?php echo ! empty( $states[ $slug ] ) ? 'is-active' : 'is-inactive'; ?>"><?php echo ! empty( $states[ $slug ] ) ? esc_html__( 'Active', 'dixcoverhub-custom-ui' ) : esc_html__( 'Off', 'dixcoverhub-custom-ui' ); ?></span><span class="dh-ui-workspace-arrow" aria-hidden="true"><?php echo DixcoverHub_Custom_UI_Icons::svg( 'ArrowUpRight01Icon', 'dh-ui-icon' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- generated from bundled, allow-listed Hugeicons data. ?></span></a>
 			<?php endforeach; ?>
 		</div>
@@ -634,6 +674,7 @@ final class DixcoverHub_Custom_UI {
 	/** Short summaries for the workspace cards. */
 	private static function workspace_description( $section ) {
 		$copy = array(
+			'home' => __( 'Homepage hero, category links, and opportunity deck.', 'dixcoverhub-custom-ui' ),
 			'navbar' => __( 'Links, categories, layout, and appearance.', 'dixcoverhub-custom-ui' ),
 			'single-post' => __( 'Article layout, facts, and related content.', 'dixcoverhub-custom-ui' ),
 			'archive' => __( 'Opportunity discovery, search, filters, and results.', 'dixcoverhub-custom-ui' ),
@@ -644,6 +685,32 @@ final class DixcoverHub_Custom_UI {
 			'popups' => __( 'Create targeted popup experiences with preview, schedules, and metrics.', 'dixcoverhub-custom-ui' ),
 		);
 		return isset( $copy[ $section ] ) ? $copy[ $section ] : '';
+	}
+
+	/** Render the opt-in homepage workspace. */
+	private static function render_home_workspace() {
+		$options = self::options();
+		?>
+		<div class="dh-ui-section-heading"><div><p class="dh-ui-eyebrow"><?php esc_html_e( 'HOMEPAGE EXPERIENCE', 'dixcoverhub-custom-ui' ); ?></p><h2><?php esc_html_e( 'Home', 'dixcoverhub-custom-ui' ); ?></h2><p><?php esc_html_e( 'Build the reference homepage from your published WordPress opportunities.', 'dixcoverhub-custom-ui' ); ?></p></div><a class="button dh-ui-preview-link" href="<?php echo esc_url( home_url( '/' ) ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Preview home', 'dixcoverhub-custom-ui' ); ?></a></div>
+		<form class="dh-ui-navbar-form" action="options.php" method="post">
+			<?php settings_fields( 'dixcoverhub_custom_ui_group' ); ?>
+			<section class="dh-ui-card"><div class="dh-ui-card-heading"><div><p class="dh-ui-eyebrow"><?php esc_html_e( 'PAGE TEMPLATE', 'dixcoverhub-custom-ui' ); ?></p><h3><?php esc_html_e( 'Homepage hero and opportunity deck', 'dixcoverhub-custom-ui' ); ?></h3><p><?php esc_html_e( 'This template takes over only the site front page. Its opportunity archive section appears only when Archive & Filters is active.', 'dixcoverhub-custom-ui' ); ?></p></div><span class="dh-ui-workspace-status <?php echo ! empty( $options['home_enabled'] ) ? 'is-active' : 'is-inactive'; ?>"><?php echo ! empty( $options['home_enabled'] ) ? esc_html__( 'Active', 'dixcoverhub-custom-ui' ) : esc_html__( 'Off', 'dixcoverhub-custom-ui' ); ?></span></div>
+			<table class="form-table" role="presentation"><tbody>
+				<?php self::checkbox_row( $options, 'home_enabled', __( 'Activate the DixcoverHub homepage', 'dixcoverhub-custom-ui' ), __( 'Your current front page stays in place until you turn this on.', 'dixcoverhub-custom-ui' ) ); ?>
+				<?php self::text_row( $options, 'home_title_before', __( 'Headline before highlight', 'dixcoverhub-custom-ui' ) ); ?>
+				<?php self::text_row( $options, 'home_title_highlight', __( 'Highlighted headline text', 'dixcoverhub-custom-ui' ) ); ?>
+				<?php self::text_row( $options, 'home_title_after', __( 'Headline after highlight', 'dixcoverhub-custom-ui' ) ); ?>
+				<tr><th scope="row"><label for="dh-navbar-home_description"><?php esc_html_e( 'Introductory text', 'dixcoverhub-custom-ui' ); ?></label></th><td><textarea class="large-text" id="dh-navbar-home_description" rows="3" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[home_description]"><?php echo esc_textarea( $options['home_description'] ); ?></textarea></td></tr>
+				<?php self::text_row( $options, 'home_cta_label', __( 'Explore button label', 'dixcoverhub-custom-ui' ) ); ?>
+				<?php self::text_row( $options, 'home_cta_url', __( 'Explore button URL', 'dixcoverhub-custom-ui' ), 'url' ); ?>
+				<?php self::checkbox_row( $options, 'home_category_strip', __( 'Show animated category links', 'dixcoverhub-custom-ui' ) ); ?>
+				<?php self::number_row( $options, 'home_deck_count', __( 'Opportunity cards in deck', 'dixcoverhub-custom-ui' ), 1, 20 ); ?>
+				<?php self::color_row( $options, 'home_background_color', __( 'Hero background colour', 'dixcoverhub-custom-ui' ) ); ?>
+				<?php self::color_row( $options, 'home_highlight_color', __( 'Headline and button accent', 'dixcoverhub-custom-ui' ) ); ?>
+			</tbody></table></section>
+			<div class="dh-ui-form-actions"><?php submit_button( __( 'Save homepage settings', 'dixcoverhub-custom-ui' ), 'primary', 'submit', false, array( 'class' => 'button button-primary dh-ui-primary-button' ) ); ?><p class="dh-ui-note"><?php esc_html_e( 'Cards use published WordPress posts. The archive and its filters remain controlled by their own switch.', 'dixcoverhub-custom-ui' ); ?></p></div>
+		</form>
+		<?php
 	}
 
 	/** Render the logo and wordmark workspace. */
@@ -968,8 +1035,13 @@ final class DixcoverHub_Custom_UI {
 			<section class="dh-ui-card"><div class="dh-ui-card-heading"><div><p class="dh-ui-eyebrow"><?php esc_html_e( 'PAGE TEMPLATE', 'dixcoverhub-custom-ui' ); ?></p><h3><?php esc_html_e( 'Article layout', 'dixcoverhub-custom-ui' ); ?></h3><p><?php esc_html_e( 'Uses the active theme header and footer, with the article layout shown in your reference.', 'dixcoverhub-custom-ui' ); ?></p></div></div>
 			<table class="form-table" role="presentation"><tbody>
 				<?php self::checkbox_row( $options, 'single_post_enabled', __( 'Use the DixcoverHub single-post layout', 'dixcoverhub-custom-ui' ), __( 'Stays off until you enable it here. Applies to standard posts; pages and other post types keep their theme templates.', 'dixcoverhub-custom-ui' ) ); ?>
-				<?php self::checkbox_row( $options, 'single_post_sidebar_enabled', __( 'Show the featured opportunities sidebar', 'dixcoverhub-custom-ui' ) ); ?>
-				<?php self::number_row( $options, 'single_post_sidebar_count', __( 'Featured sidebar items', 'dixcoverhub-custom-ui' ), 3, 8 ); ?>
+				<?php self::checkbox_row( $options, 'single_post_sidebar_enabled', __( 'Show the opportunities sidebar', 'dixcoverhub-custom-ui' ) ); ?>
+				<?php self::checkbox_row( $options, 'single_post_sidebar_featured_enabled', __( 'Show Editor’s selection', 'dixcoverhub-custom-ui' ) ); ?>
+				<?php self::number_row( $options, 'single_post_sidebar_count', __( 'Featured opportunities', 'dixcoverhub-custom-ui' ), 3, 8 ); ?>
+				<?php self::checkbox_row( $options, 'single_post_sidebar_trending_enabled', __( 'Show trending opportunities', 'dixcoverhub-custom-ui' ) ); ?>
+				<?php self::number_row( $options, 'single_post_sidebar_trending_count', __( 'Trending items', 'dixcoverhub-custom-ui' ), 2, 8 ); ?>
+				<?php self::checkbox_row( $options, 'single_post_sidebar_latest_enabled', __( 'Show latest opportunities', 'dixcoverhub-custom-ui' ) ); ?>
+				<?php self::number_row( $options, 'single_post_sidebar_latest_count', __( 'Latest items', 'dixcoverhub-custom-ui' ), 2, 8 ); ?>
 				<?php self::number_row( $options, 'single_post_width', __( 'Content width (px)', 'dixcoverhub-custom-ui' ), 960, 1440 ); ?>
 				<?php self::color_row( $options, 'single_post_header_color', __( 'Title band background', 'dixcoverhub-custom-ui' ) ); ?>
 			</tbody></table></section>
@@ -978,7 +1050,9 @@ final class DixcoverHub_Custom_UI {
 				<?php self::checkbox_row( $options, 'single_post_show_summary', __( 'Show the reader summary', 'dixcoverhub-custom-ui' ) ); ?>
 				<?php self::checkbox_row( $options, 'single_post_show_apply', __( 'Show application links and deadline status', 'dixcoverhub-custom-ui' ) ); ?>
 				<?php self::checkbox_row( $options, 'single_post_show_faqs', __( 'Show generated FAQs', 'dixcoverhub-custom-ui' ) ); ?>
+				<?php self::checkbox_row( $options, 'single_post_show_tags', __( 'Show post tags', 'dixcoverhub-custom-ui' ) ); ?>
 				<?php self::checkbox_row( $options, 'single_post_show_related', __( 'Show related opportunities', 'dixcoverhub-custom-ui' ) ); ?>
+				<?php self::checkbox_row( $options, 'single_post_protect_content', __( 'Prevent copying and cutting article text', 'dixcoverhub-custom-ui' ), __( 'Optional reference behavior. Text remains selectable and screen readers can still read it.', 'dixcoverhub-custom-ui' ) ); ?>
 			</tbody></table></section>
 			<div class="dh-ui-form-actions"><?php submit_button( __( 'Save single-post settings', 'dixcoverhub-custom-ui' ), 'primary', 'submit', false, array( 'class' => 'button button-primary dh-ui-primary-button' ) ); ?><p class="dh-ui-note"><?php esc_html_e( 'Preview a published post locally to review the layout.', 'dixcoverhub-custom-ui' ); ?></p></div>
 		</form>
@@ -995,7 +1069,13 @@ final class DixcoverHub_Custom_UI {
 			<section class="dh-ui-card"><div class="dh-ui-card-heading"><div><p class="dh-ui-eyebrow"><?php esc_html_e( 'ARCHIVE PAGE', 'dixcoverhub-custom-ui' ); ?></p><h3><?php esc_html_e( 'Heading and layout', 'dixcoverhub-custom-ui' ); ?></h3><p><?php esc_html_e( 'The plugin serves the reference archive at /opportunities/ and also provides a shortcode for other pages.', 'dixcoverhub-custom-ui' ); ?></p></div></div>
 			<table class="form-table" role="presentation"><tbody>
 				<?php self::checkbox_row( $options, 'archive_enabled', __( 'Enable opportunity archive', 'dixcoverhub-custom-ui' ), __( 'The custom archive and filters take over /opportunities/ only after you activate them here.', 'dixcoverhub-custom-ui' ) ); ?>
-				<?php self::checkbox_row( $options, 'archive_sidebar_enabled', __( 'Show the featured opportunities sidebar', 'dixcoverhub-custom-ui' ) ); ?>
+				<?php self::checkbox_row( $options, 'archive_sidebar_enabled', __( 'Show the opportunities sidebar', 'dixcoverhub-custom-ui' ) ); ?>
+				<?php self::checkbox_row( $options, 'archive_sidebar_featured_enabled', __( 'Show Editor’s selection', 'dixcoverhub-custom-ui' ) ); ?>
+				<?php self::number_row( $options, 'archive_sidebar_featured_count', __( 'Featured items', 'dixcoverhub-custom-ui' ), 1, 8 ); ?>
+				<?php self::checkbox_row( $options, 'archive_sidebar_trending_enabled', __( 'Show trending opportunities', 'dixcoverhub-custom-ui' ) ); ?>
+				<?php self::number_row( $options, 'archive_sidebar_trending_count', __( 'Trending items', 'dixcoverhub-custom-ui' ), 1, 8 ); ?>
+				<?php self::checkbox_row( $options, 'archive_sidebar_latest_enabled', __( 'Show latest opportunities', 'dixcoverhub-custom-ui' ) ); ?>
+				<?php self::number_row( $options, 'archive_sidebar_latest_count', __( 'Latest items', 'dixcoverhub-custom-ui' ), 1, 8 ); ?>
 				<?php self::text_row( $options, 'archive_heading', __( 'Archive heading', 'dixcoverhub-custom-ui' ) ); ?>
 				<tr><th scope="row"><label for="dh-navbar-archive_intro"><?php esc_html_e( 'Intro text', 'dixcoverhub-custom-ui' ); ?></label></th><td><textarea class="large-text" rows="3" id="dh-navbar-archive_intro" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[archive_intro]"><?php echo esc_textarea( $options['archive_intro'] ); ?></textarea></td></tr>
 				<?php self::number_row( $options, 'archive_posts_per_page', __( 'Listings per page', 'dixcoverhub-custom-ui' ), 6, 36 ); ?>
@@ -1071,6 +1151,10 @@ final class DixcoverHub_Custom_UI {
 	/** Load front-end styles and behaviour only when the feature is enabled. */
 	public static function enqueue_assets() {
 		$options = self::options();
+		if ( ! is_admin() && is_front_page() && ! empty( $options['home_enabled'] ) ) {
+			wp_enqueue_style( 'dixcoverhub-home', DIXCOVERHUB_CUSTOM_UI_URL . 'assets/css/home.css', array(), DIXCOVERHUB_CUSTOM_UI_VERSION );
+			wp_enqueue_script( 'dixcoverhub-home', DIXCOVERHUB_CUSTOM_UI_URL . 'assets/js/home.js', array(), DIXCOVERHUB_CUSTOM_UI_VERSION, true );
+		}
 		if ( ! empty( $options['enabled'] ) ) {
 			wp_enqueue_style( 'dixcoverhub-navbar', DIXCOVERHUB_CUSTOM_UI_URL . 'assets/css/navbar.css', array(), DIXCOVERHUB_CUSTOM_UI_VERSION );
 			wp_enqueue_script( 'dixcoverhub-navbar', DIXCOVERHUB_CUSTOM_UI_URL . 'assets/js/navbar.js', array(), DIXCOVERHUB_CUSTOM_UI_VERSION, true );
@@ -1079,6 +1163,89 @@ final class DixcoverHub_Custom_UI {
 			wp_enqueue_style( 'dixcoverhub-bottom-nav', DIXCOVERHUB_CUSTOM_UI_URL . 'assets/css/bottom-nav.css', array(), DIXCOVERHUB_CUSTOM_UI_VERSION );
 			wp_enqueue_script( 'dixcoverhub-bottom-nav', DIXCOVERHUB_CUSTOM_UI_URL . 'assets/js/bottom-nav.js', array(), DIXCOVERHUB_CUSTOM_UI_VERSION, true );
 		}
+	}
+
+	/** Use the custom front-page template only after the Home feature is activated. */
+	public static function maybe_home_template( $template ) {
+		$options = self::options();
+		if ( is_admin() || ! is_front_page() || empty( $options['home_enabled'] ) ) {
+			return $template;
+		}
+		$home_template = dirname( __DIR__ ) . '/templates/home.php';
+		return is_readable( $home_template ) ? $home_template : $template;
+	}
+
+	/** Render the opt-in reference-style homepage. */
+	public static function render_home_content() {
+		$options = self::options();
+		$posts = new WP_Query( array(
+			'post_type'              => 'post',
+			'post_status'            => 'publish',
+			'posts_per_page'         => min( 20, max( 1, absint( $options['home_deck_count'] ) ) ),
+			'orderby'                => 'date',
+			'order'                  => 'DESC',
+			'ignore_sticky_posts'    => true,
+			'no_found_rows'          => true,
+			'update_post_meta_cache' => true,
+			'update_post_term_cache' => true,
+		) );
+		$categories = get_terms( array( 'taxonomy' => 'category', 'hide_empty' => true, 'parent' => 0, 'exclude' => array( absint( get_option( 'default_category' ) ) ), 'orderby' => 'count', 'order' => 'DESC', 'number' => 20 ) );
+		if ( is_wp_error( $categories ) ) {
+			$categories = array();
+		}
+		$category_rows = array( array(), array() );
+		foreach ( array_values( $categories ) as $index => $category ) {
+			$category_rows[ $index % 2 ][] = $category;
+		}
+		if ( empty( $category_rows[0] ) && ! empty( $category_rows[1] ) ) {
+			$category_rows[0] = $category_rows[1];
+		}
+		$cta_url = self::bottom_nav_url( $options['home_cta_url'], home_url( '/opportunities/' ) );
+		$accent = sanitize_hex_color( $options['home_highlight_color'] ) ?: '#611f69';
+		$surface = sanitize_hex_color( $options['home_background_color'] ) ?: '#f4f7fb';
+		$style = sprintf( '--dh-home-accent:%1$s;--dh-home-surface:%2$s;', esc_attr( $accent ), esc_attr( $surface ) );
+		?>
+		<main class="dh-home" style="<?php echo esc_attr( $style ); ?>">
+			<section class="dh-home-hero" aria-labelledby="dh-home-title">
+				<div class="dh-home-shell">
+					<div class="dh-home-copy">
+						<p class="dh-home-kicker"><span></span><?php esc_html_e( 'YOUR NEXT STEP STARTS HERE', 'dixcoverhub-custom-ui' ); ?></p>
+						<h1 id="dh-home-title"><?php echo esc_html( $options['home_title_before'] ); ?> <span><?php echo esc_html( $options['home_title_highlight'] ); ?></span> <?php echo esc_html( $options['home_title_after'] ); ?></h1>
+						<p class="dh-home-description"><?php echo esc_html( $options['home_description'] ); ?></p>
+						<a class="dh-home-cta" href="<?php echo esc_url( $cta_url ); ?>"><?php echo esc_html( $options['home_cta_label'] ); ?><?php echo DixcoverHub_Custom_UI_Icons::svg( 'ArrowUpRight01Icon', 'dh-home-cta-icon' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- bundled Hugeicons SVG. ?></a>
+						<?php if ( ! empty( $options['home_category_strip'] ) && $categories ) : ?>
+							<div class="dh-home-categories" aria-label="<?php esc_attr_e( 'Browse opportunities by category', 'dixcoverhub-custom-ui' ); ?>">
+								<p><?php esc_html_e( 'Browse opportunities', 'dixcoverhub-custom-ui' ); ?><span></span></p>
+								<nav class="dh-home-category-accessible" aria-label="<?php esc_attr_e( 'Opportunity categories', 'dixcoverhub-custom-ui' ); ?>"><?php foreach ( $categories as $category ) : ?><a href="<?php echo esc_url( add_query_arg( 'dh_category', $category->slug, home_url( '/opportunities/' ) ) ); ?>"><?php echo esc_html( $category->name ); ?></a><?php endforeach; ?></nav>
+								<div class="dh-home-categories-mobile"><?php foreach ( $categories as $category ) : ?><a href="<?php echo esc_url( add_query_arg( 'dh_category', $category->slug, home_url( '/opportunities/' ) ) ); ?>"><?php echo esc_html( $category->name ); ?></a><?php endforeach; ?></div>
+								<div class="dh-home-category-marquee" aria-hidden="true"><?php foreach ( $category_rows as $row_index => $row ) : if ( ! $row ) { continue; } ?><div class="dh-home-category-row <?php echo 1 === $row_index ? 'is-reverse' : ''; ?>"><div><?php for ( $repeat = 0; $repeat < 3; $repeat++ ) : foreach ( $row as $category ) : ?><a tabindex="-1" href="<?php echo esc_url( add_query_arg( 'dh_category', $category->slug, home_url( '/opportunities/' ) ) ); ?>"><?php echo esc_html( $category->name ); ?></a><?php endforeach; endfor; ?></div></div><?php endforeach; ?></div>
+							</div>
+						<?php endif; ?>
+					</div>
+					<div class="dh-home-deck-wrap">
+						<?php if ( $posts->have_posts() ) : ?>
+							<div class="dh-home-deck" data-dh-home-deck role="region" aria-roledescription="carousel" aria-label="<?php esc_attr_e( 'Latest opportunities', 'dixcoverhub-custom-ui' ); ?>" tabindex="0">
+								<span class="dh-home-deck-back dh-home-deck-back--two" aria-hidden="true"></span><span class="dh-home-deck-back dh-home-deck-back--one" aria-hidden="true"></span>
+				<?php $card_index = 0; while ( $posts->have_posts() ) : $posts->the_post(); $post_id = get_the_ID(); $post_categories = get_the_category( $post_id ); $category_name = $post_categories ? $post_categories[0]->name : __( 'Opportunity', 'dixcoverhub-custom-ui' ); $opportunity_data = get_post_meta( $post_id, '_dixcoverhub_opportunity_data', true ); $opportunity_data = is_array( $opportunity_data ) ? $opportunity_data : array(); $provider_value = $opportunity_data['provider_name'] ?? get_post_meta( $post_id, '_dixcoverhub_provider_name', true ); $provider_name = is_scalar( $provider_value ) ? sanitize_text_field( (string) $provider_value ) : ''; $location_value = $opportunity_data['location'] ?? get_post_meta( $post_id, '_dixcoverhub_location', true ); $location = is_scalar( $location_value ) ? sanitize_text_field( (string) $location_value ) : ''; $image = get_the_post_thumbnail_url( $post_id, 'large' ); $excerpt = get_the_excerpt(); if ( ! $excerpt ) { $excerpt = wp_trim_words( wp_strip_all_tags( strip_shortcodes( get_the_content() ) ), 23 ); } ?>
+									<article class="dh-home-card<?php echo 0 === $card_index ? ' is-current' : ''; ?>" data-dh-home-card aria-hidden="<?php echo 0 === $card_index ? 'false' : 'true'; ?>" <?php echo 0 === $card_index ? '' : 'inert'; ?> aria-label="<?php echo esc_attr( sprintf( __( 'Opportunity %1$d of %2$d', 'dixcoverhub-custom-ui' ), $card_index + 1, $posts->post_count ) ); ?>">
+										<a class="dh-home-card-link" href="<?php the_permalink(); ?>">
+											<div class="dh-home-card-image"><?php if ( $image ) : ?><img src="<?php echo esc_url( $image ); ?>" alt="<?php echo esc_attr( get_post_meta( get_post_thumbnail_id( $post_id ), '_wp_attachment_image_alt', true ) ?: get_the_title() ); ?>" loading="<?php echo 0 === $card_index ? 'eager' : 'lazy'; ?>" /><?php else : ?><span><?php echo DixcoverHub_Custom_UI_Icons::svg( 'Briefcase01Icon', 'dh-home-card-placeholder-icon' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- bundled Hugeicons SVG. ?><?php echo esc_html( $category_name ); ?></span><?php endif; ?><b><?php echo esc_html( $category_name ); ?></b></div>
+											<div class="dh-home-card-copy"><p class="dh-home-card-meta"><?php if ( $provider_name ) : ?><span><?php echo esc_html( $provider_name ); ?></span><?php endif; ?><span><?php echo esc_html( $category_name ); ?></span><?php if ( $location ) : ?><span><?php echo esc_html( $location ); ?></span><?php endif; ?></p><h2><?php the_title(); ?></h2><p class="dh-home-card-excerpt"><?php echo esc_html( wp_trim_words( $excerpt, 27 ) ); ?></p><span class="dh-home-card-action"><?php esc_html_e( 'View opportunity', 'dixcoverhub-custom-ui' ); ?><?php echo DixcoverHub_Custom_UI_Icons::svg( 'ArrowRight01Icon', 'dh-home-card-action-icon' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- bundled Hugeicons SVG. ?></span></div>
+										</a>
+						<button class="dh-home-card-bookmark" type="button" data-dh-home-bookmark data-save-label="<?php echo esc_attr( sprintf( __( 'Save %s', 'dixcoverhub-custom-ui' ), get_the_title() ) ); ?>" data-remove-label="<?php echo esc_attr( sprintf( __( 'Remove %s from saved opportunities', 'dixcoverhub-custom-ui' ), get_the_title() ) ); ?>" data-saved-message="<?php echo esc_attr( sprintf( __( '%s saved', 'dixcoverhub-custom-ui' ), get_the_title() ) ); ?>" data-unsaved-message="<?php echo esc_attr( sprintf( __( '%s removed from saved opportunities', 'dixcoverhub-custom-ui' ), get_the_title() ) ); ?>" aria-pressed="false" aria-label="<?php echo esc_attr( sprintf( __( 'Save %s', 'dixcoverhub-custom-ui' ), get_the_title() ) ); ?>"><?php echo DixcoverHub_Custom_UI_Icons::svg( 'Bookmark01Icon', 'dh-home-card-bookmark-icon' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- bundled Hugeicons SVG. ?><span class="screen-reader-text" data-dh-home-bookmark-status aria-live="polite"></span></button>
+									</article>
+								<?php $card_index++; endwhile; wp_reset_postdata(); ?>
+							</div>
+							<div class="dh-home-deck-controls"><span data-dh-home-deck-status aria-live="polite">1 / <?php echo absint( $posts->post_count ); ?></span><div><button type="button" data-dh-home-prev aria-label="<?php esc_attr_e( 'Previous opportunity', 'dixcoverhub-custom-ui' ); ?>"><?php echo DixcoverHub_Custom_UI_Icons::svg( 'ArrowLeft01Icon', 'dh-home-control-icon' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- bundled Hugeicons SVG. ?></button><button type="button" data-dh-home-next aria-label="<?php esc_attr_e( 'Next opportunity', 'dixcoverhub-custom-ui' ); ?>"><?php echo DixcoverHub_Custom_UI_Icons::svg( 'ArrowRight01Icon', 'dh-home-control-icon' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- bundled Hugeicons SVG. ?></button></div></div>
+						<?php else : ?>
+							<div class="dh-home-empty-card"><span><?php echo DixcoverHub_Custom_UI_Icons::svg( 'Briefcase01Icon', 'dh-home-empty-icon' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- bundled Hugeicons SVG. ?></span><p><?php esc_html_e( 'Your next opportunity is on its way.', 'dixcoverhub-custom-ui' ); ?></p><a href="<?php echo esc_url( $cta_url ); ?>"><?php esc_html_e( 'Explore opportunities', 'dixcoverhub-custom-ui' ); ?></a></div>
+						<?php endif; ?>
+					</div>
+				</div>
+			</section>
+			<?php if ( ! empty( $options['archive_enabled'] ) && class_exists( 'DixcoverHub_Custom_UI_Archive' ) ) : ?><div class="dh-home-archive"><?php echo DixcoverHub_Custom_UI_Archive::render_archive( true ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- archive renderer escapes dynamic content. ?></div><?php endif; ?>
+		</main>
+		<?php
 	}
 
 	/** Reserve space under page content while the mobile navigation is active. */
@@ -1100,7 +1267,7 @@ final class DixcoverHub_Custom_UI {
 		$links = array(
 			array( 'label' => $options['bottom_nav_jobs_label'], 'description' => $options['bottom_nav_jobs_description'], 'url' => $options['bottom_nav_jobs_url'], 'icon' => 'Briefcase01Icon' ),
 			array( 'label' => $options['bottom_nav_opportunities_label'], 'description' => $options['bottom_nav_opportunities_description'], 'url' => $options['bottom_nav_opportunities_url'], 'icon' => 'Compass01Icon' ),
-			array( 'label' => $options['bottom_nav_deadlines_label'], 'description' => $options['bottom_nav_deadlines_description'], 'url' => $options['bottom_nav_deadlines_url'], 'icon' => 'File01Icon' ),
+			array( 'label' => $options['bottom_nav_deadlines_label'], 'description' => $options['bottom_nav_deadlines_description'], 'url' => $options['bottom_nav_deadlines_url'], 'icon' => 'CalendarDaysIcon' ),
 		);
 		$accent = sanitize_hex_color( $options['bottom_nav_accent_color'] ) ?: '#611f69';
 		?>
@@ -1122,11 +1289,11 @@ final class DixcoverHub_Custom_UI {
 			</div>
 			<nav class="dh-bottom-nav__mobile" aria-label="<?php esc_attr_e( 'Quick navigation', 'dixcoverhub-custom-ui' ); ?>">
 				<a class="dh-bottom-nav__icon-button<?php echo is_front_page() ? ' is-active' : ''; ?>" href="<?php echo esc_url( home_url( '/' ) ); ?>" aria-label="<?php echo esc_attr( $options['bottom_nav_home_label'] ); ?>" <?php echo is_front_page() ? 'aria-current="page"' : ''; ?>><?php echo DixcoverHub_Custom_UI_Icons::svg( 'Home01Icon', 'dh-bottom-nav__icon' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- safe bundled Hugeicons SVG. ?></a>
-				<a class="dh-bottom-nav__community" href="<?php echo esc_url( $community_url ); ?>" target="_blank" rel="noopener noreferrer"><?php echo DixcoverHub_Custom_UI_Icons::svg( 'Compass01Icon', 'dh-bottom-nav__icon' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- safe bundled Hugeicons SVG. ?><span><?php echo esc_html( $options['bottom_nav_community_label'] ); ?></span></a>
+				<a class="dh-bottom-nav__community" href="<?php echo esc_url( $community_url ); ?>" target="_blank" rel="noopener noreferrer" data-dh-analytics="community_join"><?php echo DixcoverHub_Custom_UI_Icons::svg( 'WhatsappIcon', 'dh-bottom-nav__icon' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- safe bundled Hugeicons SVG. ?><span><?php echo esc_html( $options['bottom_nav_community_label'] ); ?></span></a>
 				<button class="dh-bottom-nav__icon-button" type="button" data-dh-bottom-nav-toggle aria-expanded="false" aria-label="<?php echo esc_attr( $options['bottom_nav_more_label'] ); ?>"><?php echo DixcoverHub_Custom_UI_Icons::svg( 'Menu01Icon', 'dh-bottom-nav__icon' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- safe bundled Hugeicons SVG. ?></button>
 			</nav>
 			<div class="dh-bottom-nav__desktop">
-				<a class="dh-bottom-nav__desktop-community" href="<?php echo esc_url( $community_url ); ?>" target="_blank" rel="noopener noreferrer" aria-label="<?php echo esc_attr( $options['bottom_nav_community_label'] ); ?> on WhatsApp"><?php echo DixcoverHub_Custom_UI_Icons::svg( 'Compass01Icon', 'dh-bottom-nav__desktop-icon' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- safe bundled Hugeicons SVG. ?><span><?php echo esc_html( $options['bottom_nav_community_label'] ); ?></span></a>
+				<a class="dh-bottom-nav__desktop-community" href="<?php echo esc_url( $community_url ); ?>" target="_blank" rel="noopener noreferrer" aria-label="<?php echo esc_attr( $options['bottom_nav_community_label'] ); ?> on WhatsApp" data-dh-analytics="community_join"><?php echo DixcoverHub_Custom_UI_Icons::svg( 'WhatsappIcon', 'dh-bottom-nav__desktop-icon' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- safe bundled Hugeicons SVG. ?><span><?php echo esc_html( $options['bottom_nav_community_label'] ); ?></span></a>
 				<button class="dh-bottom-nav__desktop-toggle" type="button" data-dh-bottom-nav-toggle aria-expanded="false" aria-label="<?php echo esc_attr( $options['bottom_nav_more_label'] ); ?>"><?php echo DixcoverHub_Custom_UI_Icons::svg( 'ArrowDown01Icon', 'dh-bottom-nav__desktop-arrow' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- safe bundled Hugeicons SVG. ?></button>
 			</div>
 		</div>
@@ -1347,7 +1514,7 @@ final class DixcoverHub_Custom_UI {
 		}
 		if ( 'text' === $item['type'] ) {
 			?>
-			<li class="dh-navbar__menu-item dh-navbar__menu-item--mobile dh-navbar__menu-item--text"><span class="dh-navbar__drawer-link dh-navbar__text-item"><?php echo $icon; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- safe bundled Hugeicons. ?><span><?php echo esc_html( $label ); ?></span></span></li>
+			<li class="dh-navbar__menu-item dh-navbar__menu-item--mobile dh-navbar__menu-item--text"><span class="dh-navbar__drawer-link dh-navbar__text-item"><?php if ( $icon ) : ?><span class="dh-navbar__manual-item-icon" aria-hidden="true"><?php echo $icon; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- safe bundled Hugeicons. ?></span><?php endif; ?><span><?php echo esc_html( $label ); ?></span></span></li>
 			<?php
 			return;
 		}
@@ -1505,15 +1672,28 @@ final class DixcoverHub_Custom_UI {
 
 	/** Convert a WordPress term to the compact structure used by the renderer. */
 	private static function term_item( $term ) {
-		$link = get_term_link( $term );
+		$link = self::archive_aware_term_url( $term );
 		return array(
 			'label'       => $term->name,
-			'url'         => is_wp_error( $link ) ? home_url( '/' ) : $link,
+			'url'         => $link,
 			'description' => wp_trim_words( wp_strip_all_tags( $term->description ), 8, '' ),
 			'count'       => (int) $term->count,
 			'icon'        => self::icon_for_term( $term->slug ),
 			'slug'        => $term->slug,
 		);
+	}
+
+	/** Route category terms through the custom archive only while that feature is active. */
+	private static function archive_aware_term_url( $term ) {
+		if ( ! $term instanceof WP_Term ) {
+			return home_url( '/' );
+		}
+		$options = self::options();
+		if ( 'category' === $term->taxonomy && ! empty( $options['archive_enabled'] ) ) {
+			return add_query_arg( 'category', $term->slug, self::setting_url( '', 'opportunities' ) );
+		}
+		$link = get_term_link( $term );
+		return is_wp_error( $link ) ? home_url( '/' ) : $link;
 	}
 
 	/** Reference categories are used only while a fresh local site has no terms yet. */
@@ -1592,10 +1772,7 @@ final class DixcoverHub_Custom_UI {
 	private static function jobs_url( $options ) {
 		$term = get_term_by( 'slug', $options['jobs_parent_slug'], $options['taxonomy'] );
 		if ( $term && ! is_wp_error( $term ) ) {
-			$link = get_term_link( $term );
-			if ( ! is_wp_error( $link ) ) {
-				return $link;
-			}
+			return self::archive_aware_term_url( $term );
 		}
 		return add_query_arg( 'category', 'job', self::setting_url( '', 'opportunities' ) );
 	}
@@ -1658,7 +1835,9 @@ final class DixcoverHub_Custom_UI {
 		}
 		if ( isset( $_GET['category'] ) ) {
 			$query_category = sanitize_title( wp_unslash( $_GET['category'] ) );
-			if ( 'job' === $query_category || 'jobs' === $query_category || ( $current instanceof WP_Term && self::is_job_term( $current, $options ) ) ) {
+			$query_term = $query_category ? get_term_by( 'slug', $query_category, $options['taxonomy'] ) : false;
+			$query_is_job = $query_term && ! is_wp_error( $query_term ) && self::is_job_term( $query_term, $options );
+			if ( 'job' === $query_category || 'jobs' === $query_category || $query_is_job || ( $current instanceof WP_Term && self::is_job_term( $current, $options ) ) ) {
 				$state['jobs'] = true;
 				$state['opportunities'] = false;
 			} elseif ( $query_category ) {

@@ -84,7 +84,7 @@ final class DixcoverHub_Analytics {
 			<div class="dh-analytics-loading" data-analytics-loading><?php esc_html_e( 'Connecting to Google Analytics…', 'dixcoverhub-core' ); ?></div>
 			<section class="dh-analytics-metrics" data-metrics aria-label="<?php esc_attr_e( 'Key metrics', 'dixcoverhub-core' ); ?>"></section>
 			<div class="dh-analytics-main-grid">
-				<section class="dh-analytics-card dh-analytics-trend-card"><div class="dh-analytics-card-head"><div><p class="dh-analytics-eyebrow"><?php esc_html_e( 'TRAFFIC', 'dixcoverhub-core' ); ?></p><h2><?php esc_html_e( 'Views over time', 'dixcoverhub-core' ); ?></h2></div><span data-chart-total>—</span></div><div class="dh-analytics-chart" data-chart><?php esc_html_e( 'Analytics chart will appear here when connected.', 'dixcoverhub-core' ); ?></div><div class="dh-analytics-chart-legend"><span><i class="is-views"></i><?php esc_html_e( 'Views', 'dixcoverhub-core' ); ?></span><span><i class="is-users"></i><?php esc_html_e( 'Active users', 'dixcoverhub-core' ); ?></span></div></section>
+				<section class="dh-analytics-card dh-analytics-trend-card"><div class="dh-analytics-card-head"><div><p class="dh-analytics-eyebrow"><?php esc_html_e( 'TRAFFIC', 'dixcoverhub-core' ); ?></p><h2><?php esc_html_e( 'Views over time', 'dixcoverhub-core' ); ?></h2></div><span data-chart-total>—</span></div><div class="dh-analytics-chart" data-chart><?php esc_html_e( 'Analytics chart will appear here when connected.', 'dixcoverhub-core' ); ?></div><div class="dh-analytics-chart-legend"><span><i class="is-views"></i><?php esc_html_e( 'Views', 'dixcoverhub-core' ); ?></span><span><i class="is-users"></i><?php esc_html_e( 'Active users', 'dixcoverhub-core' ); ?></span></div><section class="dh-analytics-health" aria-label="<?php esc_attr_e( 'Engagement health', 'dixcoverhub-core' ); ?>"><p class="dh-analytics-eyebrow"><?php esc_html_e( 'ENGAGEMENT HEALTH', 'dixcoverhub-core' ); ?></p><div class="dh-analytics-health-grid"><div><span><?php esc_html_e( 'Avg. session duration', 'dixcoverhub-core' ); ?></span><strong data-average-session-duration>—</strong></div><div><span><?php esc_html_e( 'Bounce rate', 'dixcoverhub-core' ); ?></span><strong data-bounce-rate>—</strong></div></div></section></section>
 				<section class="dh-analytics-card dh-analytics-realtime-card"><div class="dh-analytics-card-head"><div><p class="dh-analytics-eyebrow"><?php esc_html_e( 'LIVE', 'dixcoverhub-core' ); ?></p><h2><?php esc_html_e( 'Active right now', 'dixcoverhub-core' ); ?></h2></div><span class="dh-analytics-live-dot"></span></div><div class="dh-analytics-window-picker" data-realtime-windows role="group" aria-label="<?php esc_attr_e( 'Realtime reporting window', 'dixcoverhub-core' ); ?>"><button type="button" data-realtime-window="live" aria-pressed="false"><?php esc_html_e( 'Live', 'dixcoverhub-core' ); ?></button><button type="button" data-realtime-window="5m" aria-pressed="true">5m</button><button type="button" data-realtime-window="30m" aria-pressed="false">30m</button><button type="button" data-realtime-window="1h" aria-pressed="false">1h</button><button type="button" data-realtime-window="today" aria-pressed="false"><?php esc_html_e( 'Today', 'dixcoverhub-core' ); ?></button><button type="button" data-realtime-window="yesterday" aria-pressed="false"><?php esc_html_e( 'Yesterday', 'dixcoverhub-core' ); ?></button></div><div class="dh-analytics-live-stats"><div><span><?php esc_html_e( 'Active users', 'dixcoverhub-core' ); ?></span><strong data-live-users>—</strong></div><div><span><?php esc_html_e( 'Views', 'dixcoverhub-core' ); ?></span><strong data-live-views>—</strong></div></div><p class="dh-analytics-caption" data-live-caption><?php esc_html_e( 'Activity in the last 5 minutes', 'dixcoverhub-core' ); ?></p><div class="dh-analytics-live-list" data-realtime-pages></div></section>
 			</div>
 			<div class="dh-analytics-main-grid dh-analytics-lower-grid">
@@ -109,7 +109,7 @@ final class DixcoverHub_Analytics {
 				<header><div><p class="dh-analytics-eyebrow"><?php esc_html_e( 'CONTENT / GA4', 'dixcoverhub-core' ); ?></p><h2 id="dh-analytics-content-title" data-content-title><?php esc_html_e( 'Post analytics', 'dixcoverhub-core' ); ?></h2><p id="dh-analytics-content-path" data-content-path></p></div><button type="button" class="dh-analytics-content-close" data-content-close aria-label="<?php esc_attr_e( 'Close analytics report', 'dixcoverhub-core' ); ?>">&times;</button></header>
 				<div class="dh-analytics-content-loading" data-content-loading><?php esc_html_e( 'Loading this page’s Google Analytics report…', 'dixcoverhub-core' ); ?></div>
 				<div class="dh-analytics-content-error" data-content-error role="alert" hidden></div>
-				<div data-content-body hidden><div class="dh-analytics-content-metrics" data-content-metrics></div><section class="dh-analytics-content-chart-card"><header><h3><?php esc_html_e( 'Daily views', 'dixcoverhub-core' ); ?></h3><strong data-content-chart-total></strong></header><div class="dh-analytics-content-chart" data-content-chart></div></section></div>
+				<div data-content-body hidden><div class="dh-analytics-content-metrics" data-content-metrics></div><section class="dh-analytics-content-conversion"><div><span><?php esc_html_e( 'Application conversion', 'dixcoverhub-core' ); ?></span><strong data-content-conversion-value>—</strong></div><div class="dh-analytics-content-conversion-track"><span data-content-conversion-bar></span></div></section><section class="dh-analytics-content-chart-card"><header><h3><?php esc_html_e( 'Views over selected period', 'dixcoverhub-core' ); ?></h3><strong data-content-chart-total></strong></header><div class="dh-analytics-content-chart" data-content-chart></div></section></div>
 			</section>
 		</div>
 		<?php
@@ -139,7 +139,7 @@ final class DixcoverHub_Analytics {
 		$score_rows = $load( 'runReport', array(
 			'dateRanges' => array( array_merge( $range['current'], array( 'name' => 'current' ) ), array_merge( $range['previous'], array( 'name' => 'previous' ) ) ),
 			'dimensions' => array( array( 'name' => 'dateRange' ) ),
-			'metrics' => self::metrics( array( 'screenPageViews', 'activeUsers', 'sessions', 'engagedSessions', 'engagementRate', 'conversions' ) ),
+			'metrics' => self::metrics( array( 'screenPageViews', 'activeUsers', 'sessions', 'engagedSessions', 'engagementRate', 'conversions', 'averageSessionDuration', 'bounceRate' ) ),
 			'keepEmptyRows' => true,
 		), 900 );
 		$series_rows = $load( 'runReport', array( 'dateRanges' => array( $range['current'] ), 'dimensions' => array( array( 'name' => 'date' ) ), 'metrics' => self::metrics( array( 'screenPageViews', 'activeUsers' ) ), 'orderBys' => array( array( 'dimension' => array( 'dimensionName' => 'date' ) ) ), 'limit' => 400, 'keepEmptyRows' => true ), 900 );
@@ -182,6 +182,13 @@ final class DixcoverHub_Analytics {
 			$realtime_summary = $load( 'runRealtimeReport', array( 'metrics' => self::metrics( array( 'activeUsers', 'screenPageViews' ) ), 'dimensionFilter' => $window_filter ), 25 );
 		}
 		$event_rows = $load( 'runReport', array( 'dateRanges' => array( $range['current'] ), 'dimensions' => array( array( 'name' => 'eventName' ) ), 'metrics' => self::metrics( array( 'eventCount' ) ), 'dimensionFilter' => array( 'filter' => array( 'fieldName' => 'eventName', 'inListFilter' => array( 'values' => array( 'application_click', 'share', 'bookmark', 'community_join' ), 'caseSensitive' => true ) ) ), 'limit' => 8 ), 900 );
+		$metrics = self::aggregate_scorecards( $score_rows );
+		$metrics['current']['applicationClicks'] = 0;
+		foreach ( $event_rows as $event_row ) {
+			if ( 'application_click' === ( $event_row['eventName'] ?? '' ) ) {
+				$metrics['current']['applicationClicks'] += self::number( $event_row['eventCount'] ?? 0 );
+			}
+		}
 		$pages = array();
 		$content_map = self::content_lookup();
 		foreach ( $content_map as $path => $local ) {
@@ -216,7 +223,7 @@ final class DixcoverHub_Analytics {
 		$window_labels = array( 'live' => 'Live', '5m' => 'Last 5 minutes', '30m' => 'Last 30 minutes', '1h' => 'Last hour', 'today' => 'Today', 'yesterday' => 'Yesterday' );
 		return rest_ensure_response( array(
 			'configured' => true, 'measurementConfigured' => $config['measurementConfigured'], 'period' => $period, 'periodLabel' => $range['label'], 'timezone' => $config['timezone'],
-			'metrics' => self::aggregate_scorecards( $score_rows ), 'series' => $series, 'topPages' => $pages,
+			'metrics' => $metrics, 'series' => $series, 'topPages' => $pages,
 			'realtime' => array( 'window' => $realtime_window, 'windowLabel' => $window_labels[ $realtime_window ], 'activeUsers' => $live_users, 'views' => $live_views, 'pages' => $live_pages ),
 			'channels' => array_map( static function ( $row ) { return array( 'name' => (string) ( $row['sessionDefaultChannelGroup'] ?? 'Unassigned' ), 'sessions' => self::number( $row['sessions'] ?? 0 ), 'activeUsers' => self::number( $row['activeUsers'] ?? 0 ) ); }, $channel_rows ),
 			'countries' => array_map( static function ( $row ) { return array( 'name' => (string) ( $row['country'] ?? 'Unknown' ), 'activeUsers' => self::number( $row['activeUsers'] ?? 0 ), 'sessions' => self::number( $row['sessions'] ?? 0 ) ); }, $country_rows ),
@@ -235,6 +242,9 @@ final class DixcoverHub_Analytics {
 		}
 
 		$config    = self::configuration();
+		$period    = sanitize_key( $request->get_param( 'period' ) );
+		if ( ! in_array( $period, array( 'today', 'yesterday', '7d', '30d', '90d', '1y' ), true ) ) { $period = '30d'; }
+		$range     = self::period_range( $period );
 		$permalink = get_permalink( $post );
 		$path      = self::clean_path( wp_parse_url( $permalink, PHP_URL_PATH ) ?: '/' );
 		$base      = array(
@@ -244,7 +254,9 @@ final class DixcoverHub_Analytics {
 			'path'       => $path,
 			'permalink'  => $permalink,
 			'editUrl'    => get_edit_post_link( $post->ID, 'raw' ),
-			'summary'    => array( 'current' => 0, 'last5Minutes' => 0, 'last30Minutes' => 0, 'today' => 0, 'last7Days' => 0, 'last30Days' => 0, 'allTime' => 0 ),
+			'period'     => $period,
+			'periodLabel'=> $range['label'],
+			'summary'    => array( 'current' => 0, 'last5Minutes' => 0, 'last30Minutes' => 0, 'today' => 0, 'last7Days' => 0, 'last30Days' => 0, 'allTime' => 0, 'periodViews' => 0, 'visitors' => 0 ),
 			'events'     => array( 'applicationClicks' => 0, 'shares' => 0, 'bookmarks' => 0 ),
 			'conversionRate' => 0,
 			'series'     => array(),
@@ -270,7 +282,7 @@ final class DixcoverHub_Analytics {
 					array( 'startDate' => '2015-08-14', 'endDate' => 'today', 'name' => 'allTime' ),
 				),
 				'dimensions'       => array( array( 'name' => 'dateRange' ) ),
-				'metrics'          => self::metrics( array( 'screenPageViews' ) ),
+				'metrics'          => self::metrics( array( 'screenPageViews', 'activeUsers' ) ),
 				'dimensionFilter'  => $page_filter,
 				'keepEmptyRows'    => true,
 			),
@@ -281,10 +293,31 @@ final class DixcoverHub_Analytics {
 			$warnings[] = $summary_report->get_error_message();
 		} else {
 			foreach ( self::report_rows( $summary_report ) as $row ) {
-				$range_name = sanitize_key( (string) ( $row['dateRange'] ?? '' ) );
+				$range_name = (string) ( $row['dateRange'] ?? '' );
 				if ( isset( $base['summary'][ $range_name ] ) ) {
 					$base['summary'][ $range_name ] = self::number( $row['screenPageViews'] ?? 0 );
 				}
+			}
+		}
+		$period_report = self::google_report(
+			$property,
+			'runReport',
+			array(
+				'dateRanges'      => array( $range['current'] ),
+				'metrics'         => self::metrics( array( 'screenPageViews', 'activeUsers' ) ),
+				'dimensionFilter' => $page_filter,
+				'keepEmptyRows'   => true,
+			),
+			900,
+			$force
+		);
+		if ( is_wp_error( $period_report ) ) {
+			$warnings[] = $period_report->get_error_message();
+		} else {
+			$period_rows = self::report_rows( $period_report );
+			if ( ! empty( $period_rows[0] ) ) {
+				$base['summary']['periodViews'] = self::number( $period_rows[0]['screenPageViews'] ?? 0 );
+				$base['summary']['visitors']    = self::number( $period_rows[0]['activeUsers'] ?? 0 );
 			}
 		}
 
@@ -292,12 +325,12 @@ final class DixcoverHub_Analytics {
 			$property,
 			'runReport',
 			array(
-				'dateRanges'      => array( array( 'startDate' => '29daysAgo', 'endDate' => 'today' ) ),
+				'dateRanges'      => array( $range['current'] ),
 				'dimensions'      => array( array( 'name' => 'date' ) ),
 				'metrics'         => self::metrics( array( 'screenPageViews' ) ),
 				'dimensionFilter' => $page_filter,
 				'orderBys'        => array( array( 'dimension' => array( 'dimensionName' => 'date' ) ) ),
-				'limit'           => 100,
+				'limit'           => 400,
 			),
 			900,
 			$force
@@ -328,7 +361,7 @@ final class DixcoverHub_Analytics {
 			$property,
 			'runReport',
 			array(
-				'dateRanges'      => array( array( 'startDate' => '29daysAgo', 'endDate' => 'today' ) ),
+				'dateRanges'      => array( $range['current'] ),
 				'dimensions'      => array( array( 'name' => 'eventName' ) ),
 				'metrics'         => self::metrics( array( 'eventCount' ) ),
 				'dimensionFilter' => array(
@@ -358,7 +391,7 @@ final class DixcoverHub_Analytics {
 				}
 			}
 		}
-		$base['conversionRate'] = $base['summary']['last30Days'] ? round( ( $base['events']['applicationClicks'] / $base['summary']['last30Days'] ) * 100, 1 ) : 0;
+		$base['conversionRate'] = $base['summary']['periodViews'] ? round( ( $base['events']['applicationClicks'] / $base['summary']['periodViews'] ) * 100, 1 ) : 0;
 		if ( is_wp_error( $realtime_report ) ) {
 			$warnings[] = $realtime_report->get_error_message();
 		} else {
@@ -448,11 +481,11 @@ final class DixcoverHub_Analytics {
 	private static function metrics( $names ) { return array_map( static function ( $name ) { return array( 'name' => $name ); }, $names ); }
 
 	private static function aggregate_scorecards( $rows ) {
-		$empty = array( 'views' => 0, 'activeUsers' => 0, 'sessions' => 0, 'engagedSessions' => 0, 'engagementRate' => 0, 'conversions' => 0 );
+		$empty = array( 'views' => 0, 'activeUsers' => 0, 'sessions' => 0, 'engagedSessions' => 0, 'engagementRate' => 0, 'conversions' => 0, 'averageSessionDuration' => 0, 'bounceRate' => 0 );
 		$current = $empty; $previous = $empty;
 		foreach ( $rows as $row ) {
 			$target = in_array( $row['dateRange'] ?? '', array( 'previous', 'date_range_1' ), true ) ? 'previous' : 'current';
-			$values = array( 'views' => self::number( $row['screenPageViews'] ?? 0 ), 'activeUsers' => self::number( $row['activeUsers'] ?? 0 ), 'sessions' => self::number( $row['sessions'] ?? 0 ), 'engagedSessions' => self::number( $row['engagedSessions'] ?? 0 ), 'engagementRate' => self::number( $row['engagementRate'] ?? 0 ), 'conversions' => self::number( $row['conversions'] ?? 0 ) );
+			$values = array( 'views' => self::number( $row['screenPageViews'] ?? 0 ), 'activeUsers' => self::number( $row['activeUsers'] ?? 0 ), 'sessions' => self::number( $row['sessions'] ?? 0 ), 'engagedSessions' => self::number( $row['engagedSessions'] ?? 0 ), 'engagementRate' => self::number( $row['engagementRate'] ?? 0 ), 'conversions' => self::number( $row['conversions'] ?? 0 ), 'averageSessionDuration' => self::number( $row['averageSessionDuration'] ?? 0 ), 'bounceRate' => self::number( $row['bounceRate'] ?? 0 ) );
 			if ( 'previous' === $target ) { $previous = $values; } else { $current = $values; }
 		}
 		$changes = array();

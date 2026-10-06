@@ -17,6 +17,11 @@
   }
   function format(value) { return numberFormat.format(Number(value) || 0); }
   function percent(value) { return (Number(value || 0) * 100).toFixed(1) + '%'; }
+  function duration(seconds) {
+    seconds = Number(seconds || 0);
+    if (!seconds) return '—';
+    return Math.floor(seconds / 60) + 'm ' + Math.round(seconds % 60) + 's';
+  }
   function showError(message) { errorBox.hidden = false; errorBox.textContent = message; }
   function hideError() { errorBox.hidden = true; errorBox.textContent = ''; }
   function changeLabel(value) {
@@ -33,17 +38,23 @@
       ['Views', values.views, changes.views],
       ['Active users', values.activeUsers, changes.activeUsers],
       ['Sessions', values.sessions, changes.sessions],
+      ['Applications', values.applicationClicks, data.periodLabel + ' · GA4'],
       ['Engaged sessions', values.engagedSessions, changes.engagedSessions],
-      ['Conversions', values.conversions, changes.conversions]
     ].forEach(function (metric) {
       var card = node('article', 'dh-analytics-metric');
       card.append(node('span', 'dh-analytics-metric-label', metric[0]), node('strong', 'dh-analytics-metric-value', format(metric[1])));
-      var change = node('span', 'dh-analytics-metric-change ' + (metric[2] > 0 ? 'is-up' : metric[2] < 0 ? 'is-down' : ''), changeLabel(metric[2]));
+      var customNote = typeof metric[2] === 'string';
+      var change = node('span', 'dh-analytics-metric-change ' + (!customNote && metric[2] > 0 ? 'is-up' : !customNote && metric[2] < 0 ? 'is-down' : ''), customNote ? metric[2] : changeLabel(metric[2]));
       card.appendChild(change); host.appendChild(card);
     });
     var engagement = node('article', 'dh-analytics-metric');
     engagement.append(node('span', 'dh-analytics-metric-label', 'Engagement rate'), node('strong', 'dh-analytics-metric-value', percent(values.engagementRate)));
     engagement.appendChild(node('span', 'dh-analytics-metric-change', data.periodLabel + ' · GA4')); host.appendChild(engagement);
+  }
+  function renderEngagementHealth(data) {
+    var values = data.metrics.current || {};
+    root.querySelector('[data-average-session-duration]').textContent = duration(values.averageSessionDuration);
+    root.querySelector('[data-bounce-rate]').textContent = percent(values.bounceRate);
   }
   function makeSvg(name, attrs) {
     var item = document.createElementNS('http://www.w3.org/2000/svg', name);
@@ -181,7 +192,7 @@
     var host = root.querySelector('[data-content-chart]');
     var values = Array.isArray(series) ? series : [];
     host.replaceChildren();
-    if (!values.length) { host.appendChild(node('p', 'dh-analytics-empty', 'No daily traffic rows are available for this post.')); return; }
+    if (!values.length) { host.appendChild(node('p', 'dh-analytics-empty', 'No daily traffic rows are available for this period.')); return; }
     var width = 900; var height = 190; var padX = 12; var padY = 16;
     var max = Math.max(1, ...values.map(function (item) { return Number(item.value) || 0; }));
     var svg = makeSvg('svg', { viewBox: '0 0 ' + width + ' ' + height, role: 'img', 'aria-label': 'Daily page views for this post', preserveAspectRatio: 'none' });
@@ -222,16 +233,19 @@
     var events = data.events || {};
     var metrics = [
       ['Active now', values.current], ['Views · 5 minutes', values.last5Minutes], ['Views · 30 minutes', values.last30Minutes],
+      ['Period views', values.periodViews], ['Visitors', values.visitors],
       ['Today', values.today], ['Last 7 days', values.last7Days], ['Last 30 days', values.last30Days], ['All time', values.allTime],
-      ['Application clicks', events.applicationClicks], ['Shares', events.shares], ['Bookmarks', events.bookmarks], ['Conversion rate', data.conversionRate, 'percent']
+      ['Application clicks', events.applicationClicks], ['Shares', events.shares], ['Bookmarks', events.bookmarks]
     ];
     var host = root.querySelector('[data-content-metrics]'); host.replaceChildren();
     metrics.forEach(function (item) {
       var card = node('article', 'dh-analytics-content-metric');
-      var value = 'percent' === item[2] ? (Number(item[1] || 0).toFixed(1) + '%') : format(item[1]);
-      card.append(node('span', '', item[0]), node('strong', '', value)); host.appendChild(card);
+      card.append(node('span', '', item[0]), node('strong', '', format(item[1]))); host.appendChild(card);
     });
-    root.querySelector('[data-content-chart-total]').textContent = format(values.last30Days) + ' views · 30 days';
+    var conversionRate = Math.max(0, Math.min(100, Number(data.conversionRate) || 0));
+    root.querySelector('[data-content-conversion-value]').textContent = conversionRate.toFixed(1) + '%';
+    root.querySelector('[data-content-conversion-bar]').style.width = conversionRate + '%';
+    root.querySelector('[data-content-chart-total]').textContent = format(values.periodViews) + ' views · ' + (data.periodLabel || 'selected period');
     renderContentChart(data.series);
     if (data.error || (data.warnings && data.warnings.length)) {
       contentError.hidden = false;
@@ -246,7 +260,7 @@
     root.querySelector('[data-content-path]').textContent = '';
     contentModal.querySelector('.dh-analytics-content-close').focus();
     try {
-		var url = api.contentUrl.replace(/\/$/, '') + '/' + encodeURIComponent(postId);
+		var url = api.contentUrl.replace(/\/$/, '') + '/' + encodeURIComponent(postId) + '?period=' + encodeURIComponent(period.value || '30d');
       var response = await fetch(url, { credentials: 'same-origin', headers: { 'X-WP-Nonce': api.nonce } });
       var data = await response.json();
       if (!response.ok) throw new Error(data.message || 'The post report could not be loaded.');
@@ -313,7 +327,7 @@
       return;
     }
     alert.hidden = true;
-    renderMetrics(data); renderChart(data); renderPages(data.topPages);
+    renderMetrics(data); renderEngagementHealth(data); renderChart(data); renderPages(data.topPages);
     renderRealtime(data.realtime || { activeUsers: 0, pages: [] });
     renderMiniTable('[data-channels]', data.channels, 'name', 'sessions');
     renderMiniTable('[data-countries]', data.countries, 'name', 'activeUsers');

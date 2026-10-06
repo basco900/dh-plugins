@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DixcoverHub Custom UI
  * Description: The DixcoverHub design studio for navigation, typography, popups, and site UI.
- * Version: 0.8.17
+ * Version: 0.8.52
  * Requires at least: 6.4
  * Requires PHP: 8.0
  * Text Domain: dixcoverhub-custom-ui
@@ -28,7 +28,7 @@ if ( ! defined( 'DIXCOVERHUB_CORE_VERSION' ) ) {
 	return;
 }
 
-define( 'DIXCOVERHUB_CUSTOM_UI_VERSION', '0.8.17' );
+define( 'DIXCOVERHUB_CUSTOM_UI_VERSION', '0.8.52' );
 define( 'DIXCOVERHUB_CUSTOM_UI_FILE', __FILE__ );
 define( 'DIXCOVERHUB_CUSTOM_UI_URL', plugin_dir_url( __FILE__ ) );
 

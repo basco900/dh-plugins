@@ -4,7 +4,30 @@
   if (!box || !window.DixcoverHubWhatsApp) return;
   var status = box.querySelector('[data-wa-status]');
   var text = box.querySelector('[data-wa-text]');
+  var generateButton = box.querySelector('[data-wa-generate]');
+  var publishNotice = box.querySelector('[data-wa-publish-notice]');
   var busy = false;
+  var published = !!DixcoverHubWhatsApp.published;
+
+  function syncEditorPost(postId, postStatus) {
+    if (Number(postId) > 0) DixcoverHubWhatsApp.postId = Number(postId);
+    published = 'publish' === postStatus;
+    DixcoverHubWhatsApp.published = published;
+    if (generateButton) generateButton.disabled = busy || !published;
+    if (publishNotice) publishNotice.hidden = published;
+  }
+
+  function watchEditorPost() {
+    var editor = window.wp && wp.data && wp.data.select && wp.data.select('core/editor');
+    if (!editor || !wp.data.subscribe) return;
+    function update() {
+      var currentEditor = wp.data.select('core/editor');
+      if (!currentEditor) return;
+      syncEditorPost(currentEditor.getCurrentPostId(), currentEditor.getCurrentPostAttribute('status'));
+    }
+    update();
+    wp.data.subscribe(update);
+  }
 
   function message(value, kind) {
     status.hidden = false;
@@ -13,7 +36,9 @@
   }
   function setBusy(state) {
     busy = state;
-    box.querySelectorAll('button').forEach(function (button) { button.disabled = state; });
+    box.querySelectorAll('button').forEach(function (button) {
+      button.disabled = state || (button.hasAttribute('data-wa-generate') && !published);
+    });
   }
   function headers(json) {
     var result = { 'X-WP-Nonce': DixcoverHubWhatsApp.nonce };
@@ -29,6 +54,7 @@
   box.querySelector('[data-wa-generate]').addEventListener('click', async function () {
     if (busy) return;
     if (!DixcoverHubWhatsApp.postId) { message('Save the post as a draft first, then generate its summary.', 'warning'); return; }
+    if (!published) { message('Publish the post before generating its WhatsApp summary.', 'warning'); return; }
     setBusy(true); message('Checking the article details and preparing a concise summary…', 'info');
     try {
       var data = await request(DixcoverHubWhatsApp.generateUrl, { postId: DixcoverHubWhatsApp.postId });
@@ -55,4 +81,6 @@
       message('Summary copied to the clipboard.', 'success');
     } catch (_) { text.focus(); text.select(); message('Select the text and copy it with Ctrl+C.', 'warning'); }
   });
+  syncEditorPost(DixcoverHubWhatsApp.postId, published ? 'publish' : 'draft');
+  watchEditorPost();
 })();

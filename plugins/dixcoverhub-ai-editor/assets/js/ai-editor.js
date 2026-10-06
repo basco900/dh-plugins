@@ -4,16 +4,42 @@
   var app = document.querySelector('.dh-ai-app');
   if (!app || !window.DixcoverHubAI) return;
 
+  var maxImageBytes = Number(DixcoverHubAI.maxImageBytes);
+  var maxTotalImageBytes = Number(DixcoverHubAI.maxTotalImageBytes);
+  if (!Number.isFinite(maxImageBytes)) maxImageBytes = 8 * 1024 * 1024;
+  if (!Number.isFinite(maxTotalImageBytes)) maxTotalImageBytes = 24 * 1024 * 1024;
+  var maxImageLabel = DixcoverHubAI.maxImageLabel || '8 MB';
+  var maxTotalImageLabel = DixcoverHubAI.maxTotalImageLabel || '24 MB';
+
   var $ = function (selector) { return app.querySelector(selector); };
   var status = $('[data-ai-status]');
   var activePostId = 0;
+  var autoSaveTimer = 0;
+  var editorChangeVersion = 0;
+  var editorDirty = false;
+  var autoSaveFailed = false;
+  var saveInProgress = false;
+  var autoSaveState = null;
+  var suspendDirtyTracking = false;
   var lastResult = null;
   var faqRows = [];
   var applicationLinkRows = [{ label: '', url: '' }];
   var selectedFeaturedImage = 0;
+  var currentSlug = '';
+  var slugCustomized = false;
+  var activeGenerationController = null;
+  var generationTimeoutId = 0;
+  var generationTimedOut = false;
+  var cancelGenerationButton = $('[data-cancel-generation]');
 
   function value(id) { var field = document.getElementById(id); return field ? field.value.trim() : ''; }
-  function setValue(id, next) { var field = document.getElementById(id); if (field) field.value = next == null ? '' : String(next); }
+  function setValue(id, next) {
+    var field = document.getElementById(id);
+    if (!field) return;
+    field.value = next == null ? '' : String(next);
+    if (field.dataset.dhTaxonomyReady) field.dispatchEvent(new Event('input', { bubbles: true }));
+    if (field.dataset.dhCustomSelect) field.dispatchEvent(new Event('change', { bubbles: true }));
+  }
   function setEditorContent(html) {
     if (window.tinymce && tinymce.get('dixcoverhub_ai_content')) {
       tinymce.get('dixcoverhub_ai_content').setContent(html || '');
@@ -33,10 +59,158 @@
     status.textContent = message;
     status.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
+  function setAutoSaveState(message, kind) {
+    if (!autoSaveState) return;
+    autoSaveState.textContent = message || '';
+    autoSaveState.classList.toggle('is-saving', kind === 'saving');
+    autoSaveState.classList.toggle('is-error', kind === 'error');
+    autoSaveState.hidden = !message;
+  }
+  function queueAutoSave() {
+    window.clearTimeout(autoSaveTimer);
+    autoSaveTimer = 0;
+    if (!activePostId || !editorDirty || autoSaveFailed) return;
+    autoSaveTimer = window.setTimeout(function () {
+      autoSaveTimer = 0;
+      var button = activePostStatus === 'publish' && publishButton ? publishButton : saveButton;
+      savePost(activePostStatus, button, true);
+    }, 30000);
+  }
+  function markEditorDirty() {
+    if (suspendDirtyTracking) return;
+    editorChangeVersion += 1;
+    editorDirty = true;
+    autoSaveFailed = false;
+    if (!activePostId) return;
+    setAutoSaveState('Unsaved changes');
+    queueAutoSave();
+  }
   function listText(items) { return Array.isArray(items) ? items.join('\n') : ''; }
   function splitLines(text) { return text.split(/\r?\n/).map(function (line) { return line.trim(); }).filter(Boolean); }
   function apiHeaders() { return { 'X-WP-Nonce': DixcoverHubAI.nonce }; }
+  function createGenerationRequestId() {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
+    return Date.now().toString(16) + '-' + Math.random().toString(16).slice(2) + '-' + Math.random().toString(16).slice(2);
+  }
+  function waitForProgressPoll(signal) {
+    return new Promise(function (resolve) {
+      var timer = window.setTimeout(done, 1200);
+      function done() {
+        signal.removeEventListener('abort', abort);
+        resolve();
+      }
+      function abort() {
+        window.clearTimeout(timer);
+        done();
+      }
+      if (signal.aborted) abort();
+      else signal.addEventListener('abort', abort, { once: true });
+    });
+  }
+  async function pollGenerationProgress(requestId, controller) {
+    var lastStage = '';
+    while (!controller.signal.aborted) {
+      try {
+        var url = new URL(DixcoverHubAI.progressUrl, window.location.href);
+        url.searchParams.set('request_id', requestId);
+        var response = await fetch(url.toString(), { method: 'GET', credentials: 'same-origin', headers: apiHeaders(), signal: controller.signal, cache: 'no-store' });
+        if (response.ok) {
+          var progress = await response.json();
+          var stage = progress && progress.stage;
+          var label = stage && DixcoverHubAI.labels[stage];
+          if (label && stage !== lastStage && status.classList.contains('is-loading')) {
+            status.textContent = label;
+            lastStage = stage;
+          }
+        }
+      } catch (error) {
+        if (error && error.name === 'AbortError') return;
+        // Progress is an enhancement; generation can still finish if polling is unavailable.
+      }
+      await waitForProgressPoll(controller.signal);
+    }
+  }
   function normalizeName(text) { return String(text || '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, ' ').trim(); }
+  function slugify(text) {
+    text = String(text || '');
+    if (typeof text.normalize === 'function') text = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return text.toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 180).replace(/-+$/g, '');
+  }
+  function renderSlug() {
+    var text = $('[data-slug-text]');
+    var input = $('[data-slug-input]');
+    if (text) text.textContent = '/' + (currentSlug || 'your-post-title');
+    if (input && document.activeElement !== input) input.value = currentSlug;
+  }
+  function setSlug(slug, title, postStatus) {
+    var savedSlug = slugify(slug);
+    var titleSlug = slugify(title);
+    currentSlug = savedSlug || titleSlug;
+    slugCustomized = !!savedSlug && ('publish' === postStatus || savedSlug !== titleSlug);
+    renderSlug();
+  }
+  function updateAutomaticSlug() {
+    if (!slugCustomized && 'publish' !== activePostStatus) currentSlug = slugify(value('dh-ai-title'));
+    else if (!currentSlug) currentSlug = slugify(value('dh-ai-title'));
+    renderSlug();
+  }
+  function initializeSlugEditor() {
+    var title = document.getElementById('dh-ai-title');
+    var display = $('[data-slug-display]');
+    var editButton = $('[data-slug-edit]');
+    var editor = $('[data-slug-editor]');
+    var input = $('[data-slug-input]');
+    var saveButtonForSlug = $('[data-slug-save]');
+    var cancelButton = $('[data-slug-cancel]');
+    var help = $('[data-slug-error]');
+    if (!display || !editButton || !editor || !input || !saveButtonForSlug || !cancelButton) return;
+
+    function closeEditor() {
+      editor.hidden = true;
+      display.hidden = false;
+      editButton.hidden = false;
+      input.value = currentSlug;
+      if (help) {
+        help.classList.remove('is-error');
+        help.textContent = 'WordPress uses this slug within your configured permalink structure.';
+      }
+      renderSlug();
+    }
+    function commitSlug() {
+      var nextSlug = slugify(input.value);
+      if (!nextSlug) {
+        if (help) {
+          help.classList.add('is-error');
+          help.textContent = 'Add at least one letter or number to the slug.';
+        }
+        input.focus();
+        return;
+      }
+      currentSlug = nextSlug;
+      slugCustomized = true;
+      closeEditor();
+      markEditorDirty();
+    }
+
+    if (title) title.addEventListener('input', updateAutomaticSlug);
+    input.addEventListener('input', function (event) { event.stopPropagation(); });
+    input.addEventListener('change', function (event) { event.stopPropagation(); });
+    editButton.addEventListener('click', function () {
+      editor.hidden = false;
+      display.hidden = true;
+      editButton.hidden = true;
+      input.value = currentSlug || slugify(value('dh-ai-title'));
+      input.focus();
+      input.select();
+    });
+    saveButtonForSlug.addEventListener('click', commitSlug);
+    cancelButton.addEventListener('click', closeEditor);
+    input.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter') { event.preventDefault(); commitSlug(); }
+      if (event.key === 'Escape') { event.preventDefault(); closeEditor(); }
+    });
+    updateAutomaticSlug();
+  }
 
   function renderFaqs() {
     var host = $('[data-faqs]');
@@ -122,6 +296,8 @@
         remove.addEventListener('click', function () {
           applicationLinkRows.splice(index, 1);
           renderApplicationLinks();
+          markEditorDirty();
+          renderReadiness();
         });
         row.appendChild(remove);
       }
@@ -154,7 +330,7 @@
     });
   }
 
-  function applyResult(data) {
+  function applyResult(data, shouldMarkDirty) {
     lastResult = data;
     setValue('dh-ai-excerpt', data.excerpt);
     setValue('dh-ai-summary', data.summary);
@@ -188,27 +364,51 @@
     renderFaqs();
     renderSources(data.sources);
     applyCategorySuggestions(data.categoryNames);
-    notice('Draft content is ready. Review the article, metadata, dates, application details and FAQs before saving.', 'success');
+    renderReadiness();
+    if (shouldMarkDirty === false) {
+      notice('Saved WordPress content loaded. Review or refine it, then save your changes.', 'success');
+    } else {
+      notice('Draft content is ready. Review the article, metadata, dates, application details and FAQs before saving.', 'success');
+      markEditorDirty();
+    }
   }
 
-  $('[data-add-faq]').addEventListener('click', function () { if (faqRows.length >= 8) { notice('You can add up to 8 FAQs.', 'warning'); return; } faqRows.push({ question: '', answer: '' }); renderFaqs(); });
+  $('[data-add-faq]').addEventListener('click', function () { if (faqRows.length >= 8) { notice('You can add up to 8 FAQs.', 'warning'); return; } faqRows.push({ question: '', answer: '' }); renderFaqs(); markEditorDirty(); });
   $('[data-add-application-link]').addEventListener('click', function () {
     if (applicationLinkRows.length >= 8) return;
     applicationLinkRows.push({ label: '', url: '' });
     renderApplicationLinks();
+    markEditorDirty();
     var fields = app.querySelectorAll('[data-application-links] input[type="url"]');
     if (fields.length) fields[fields.length - 1].focus();
   });
   renderApplicationLinks();
 
+  cancelGenerationButton.addEventListener('click', function () {
+    if (activeGenerationController) activeGenerationController.abort();
+  });
+
   $('[data-generate]').addEventListener('click', async function () {
     var title = value('dh-ai-title');
     if (!title) { notice('Enter the opportunity title first.', 'error'); document.getElementById('dh-ai-title').focus(); return; }
     var category = value('dh-ai-category');
-    if (!category || Number(category) < 1) { notice('Choose the main opportunity category first.', 'error'); document.getElementById('dh-ai-category').focus(); return; }
+    if (!category || Number(category) < 1) { notice('Choose the main opportunity category first.', 'error'); document.getElementById('dh-ai-category-choose').focus(); return; }
     var button = this; button.disabled = true; setEvidenceBusy(true);
-    notice(DixcoverHubAI.labels.working + ' This can take a little while.', 'info');
+    var controller = new AbortController();
+    var progressController = new AbortController();
+    var requestId = createGenerationRequestId();
+    activeGenerationController = controller;
+    generationTimedOut = false;
+    cancelGenerationButton.hidden = false;
+    notice(DixcoverHubAI.labels.working + ' This may take a few minutes.', 'info');
+    status.classList.add('is-loading');
+    generationTimeoutId = window.setTimeout(function () {
+      generationTimedOut = true;
+      controller.abort();
+    }, 520000);
+    var progressPoll = pollGenerationProgress(requestId, progressController);
     var form = new FormData();
+    form.append('request_id', requestId);
     form.append('title', title);
     form.append('provider', value('dh-ai-provider'));
     form.append('provider_website', value('dh-ai-provider-website-source'));
@@ -221,55 +421,308 @@
     form.append('instruction', value('dh-ai-instruction'));
     evidenceFiles.forEach(function (item) { form.append('images[]', item.file, item.file.name); });
     try {
-      var response = await fetch(DixcoverHubAI.generateUrl, { method: 'POST', credentials: 'same-origin', headers: apiHeaders(), body: form });
+      var response = await fetch(DixcoverHubAI.generateUrl, { method: 'POST', credentials: 'same-origin', headers: apiHeaders(), body: form, signal: controller.signal });
       var json = await response.json();
       if (!response.ok) throw new Error(json.message || 'AI generation failed. Check the server configuration and try again.');
       applyResult(json);
     } catch (error) {
-      notice(error.message || 'AI generation failed. Please try again.', 'error');
-    } finally { button.disabled = false; setEvidenceBusy(false); }
+      if (error && 'AbortError' === error.name) {
+        notice(generationTimedOut ? 'Generation timed out. Add fewer sources or try again.' : 'Stopped waiting. Your current editor content was kept, and no draft was saved.', generationTimedOut ? 'error' : 'warning');
+      } else {
+        notice(error.message || 'AI generation failed. Please try again.', 'error');
+      }
+    } finally {
+      progressController.abort();
+      await progressPoll;
+      window.clearTimeout(generationTimeoutId);
+      generationTimeoutId = 0;
+      activeGenerationController = null;
+      cancelGenerationButton.hidden = true;
+      status.classList.remove('is-loading');
+      button.disabled = false;
+      setEvidenceBusy(false);
+    }
   });
 
   function opportunityPayload() {
     var base = lastResult || {};
     var applicationLinks = getApplicationLinks();
+    var sources = Array.isArray(base.sources) ? base.sources.slice() : [];
+    var sourceUrls = new Set(sources.map(function (source) { return String((source && source.url) || ''); }));
+    splitLines(value('dh-ai-links')).forEach(function (sourceUrl) {
+      try {
+        var parsed = new URL(sourceUrl);
+        if (!['http:', 'https:'].includes(parsed.protocol) || sourceUrls.has(parsed.href)) return;
+        sourceUrls.add(parsed.href);
+        sources.push({ title: parsed.hostname, url: parsed.href });
+      } catch (_) { /* Ignore incomplete source URLs until the editor adds a valid link. */ }
+    });
     return {
       summary: value('dh-ai-summary'), metaTitle: value('dh-ai-meta-title'), metaDescription: value('dh-ai-meta-description'), focusKeyword: value('dh-ai-focus-keyword'),
       providerName: value('dh-ai-provider'), providerAbout: value('dh-ai-provider-about'), providerWebsite: value('dh-ai-provider-website'), providerEmail: value('dh-ai-provider-email'), providerSocialProfiles: splitLines(value('dh-ai-provider-social')),
       employmentType: value('dh-ai-employment'), location: value('dh-ai-location'), deadline: value('dh-ai-deadline'), duration: value('dh-ai-duration'), salary: value('dh-ai-salary'),
       applicationMethod: value('dh-ai-application-method'), applicationLink: (applicationLinks[0] || {}).url || '', applicationLinks: applicationLinks, applicationEmail: value('dh-ai-application-email'),
-      requirements: splitLines(value('dh-ai-requirements')), benefits: splitLines(value('dh-ai-benefits')), faqs: faqRows, sources: base.sources || [],
+      requirements: splitLines(value('dh-ai-requirements')), benefits: splitLines(value('dh-ai-benefits')), faqs: faqRows, sources: sources,
       categoryNames: base.categoryNames || [], typeNames: splitTags(value('dh-ai-types')), levelNames: splitTags(value('dh-ai-levels')), modeNames: splitTags(value('dh-ai-modes')), locationNames: splitTags(value('dh-ai-locations')), tagNames: splitTags(value('dh-ai-tags'))
     };
   }
   function splitTags(text) { return text.split(',').map(function (tag) { return tag.trim(); }).filter(Boolean).slice(0, 20); }
 
-  $('[data-save]').addEventListener('click', async function () {
-    var button = this;
-    var title = value('dh-ai-title'); var content = getEditorContent();
-    if (!title || !content.trim()) { notice('Add a title and article body before saving.', 'error'); return; }
+  function renderReadiness() {
+    var panel = $('[data-readiness]');
+    if (!panel) return;
+    var article = document.createElement('div');
+    article.innerHTML = getEditorContent() || '';
+    var articleText = String(article.textContent || '').replace(/\s+/g, ' ').trim();
+    var wordCount = articleText ? articleText.split(' ').length : 0;
+    var hasApplication = getApplicationLinks().length > 0 || !!value('dh-ai-application-email');
+    var hasCategory = app.querySelectorAll('input[name="dh_ai_categories[]"]:checked').length > 0;
+    var hasSeo = !!(value('dh-ai-meta-title') && value('dh-ai-meta-description') && value('dh-ai-focus-keyword'));
+    var checks = {
+      title: !!value('dh-ai-title'),
+      provider: !!value('dh-ai-provider'),
+      application: hasApplication,
+      content: wordCount >= 550,
+      category: hasCategory,
+      seo: hasSeo,
+      image: selectedFeaturedImage > 0
+    };
+    var keys = Object.keys(checks);
+    var completed = keys.filter(function (key) { return checks[key]; }).length;
+    var score = Math.round((completed / keys.length) * 100);
+    var scoreNode = $('[data-readiness-score]');
+    var countNode = $('[data-readiness-count]');
+    var track = $('.dh-ai-readiness-track');
+    var bar = $('[data-readiness-bar]');
+    if (scoreNode) scoreNode.textContent = String(score);
+    if (countNode) countNode.textContent = completed + ' of ' + keys.length + ' checks complete';
+    if (track) track.setAttribute('aria-valuenow', String(score));
+    if (bar) bar.style.width = score + '%';
+    panel.querySelectorAll('[data-readiness-item]').forEach(function (item) {
+      var complete = !!checks[item.dataset.readinessItem];
+      item.classList.toggle('is-complete', complete);
+      var indicator = item.querySelector('[data-readiness-icon]');
+      if (indicator) indicator.textContent = complete ? '✓' : '○';
+    });
+  }
+
+  var saveButton = $('[data-save]');
+  var publishButton = $('[data-publish]');
+  var activePostStatus = 'draft';
+  var saveHint = $('[data-save-hint]');
+  autoSaveState = $('[data-autosave-state]');
+
+  function updatePostActions() {
+    var isPublished = activePostId > 0 && activePostStatus === 'publish';
+    saveButton.hidden = isPublished && !!publishButton;
+    saveButton.textContent = activePostId
+      ? (isPublished ? 'Update published post' : 'Update WordPress draft')
+      : 'Save as WordPress draft';
+    if (publishButton) {
+      publishButton.hidden = false;
+      publishButton.textContent = isPublished ? 'Update published post' : 'Publish opportunity';
+    }
+    var stateLabel = $('[data-post-state]');
+    if (stateLabel) stateLabel.textContent = isPublished ? 'Published' : (activePostId ? 'WordPress draft' : 'Draft only');
+  }
+
+  function updateReviewWarning() {
+    var title = $('[data-review-warning-title]');
+    var message = $('[data-review-warning-text]');
+    if (!title || !message) return;
+    if (activePostId && activePostStatus === 'publish') {
+      title.textContent = 'This opportunity is public';
+      message.textContent = 'Edits autosave after 30 seconds and update the live page. Review carefully before changing published content.';
+    } else if (activePostId) {
+      title.textContent = 'WordPress draft saved';
+      message.textContent = 'Edits autosave after 30 seconds. Publishing still requires an explicit action.';
+    } else {
+      title.textContent = 'Review before publishing';
+      message.textContent = 'Generated content is not saved yet. Check dates, eligibility, pay, links, and every claim against the source, then save a draft or publish it explicitly.';
+    }
+  }
+
+  function updatePostLinks(record) {
+    ['[data-open-draft]', '[data-open-preview]', '[data-open-public]'].forEach(function (selector) {
+      var oldLink = $(selector);
+      if (oldLink) oldLink.remove();
+    });
+    var links = [];
+    if (record.editUrl) links.push({ key: 'openDraft', url: record.editUrl, label: 'Continue in WordPress editor' });
+    if (record.status === 'publish' && record.publicUrl) {
+      links.push({ key: 'openPublic', url: record.publicUrl, label: 'View published post' });
+    } else if (record.previewUrl) {
+      links.push({ key: 'openPreview', url: record.previewUrl, label: 'Preview draft' });
+    }
+    links.forEach(function (item) {
+      var link = document.createElement('a');
+      link.dataset[item.key] = '1';
+      link.href = item.url;
+      link.className = 'dh-ai-edit-link';
+      link.textContent = item.label;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      saveHint.appendChild(link);
+    });
+  }
+
+  async function loadExistingPost() {
+    var requestedPostId = Number(DixcoverHubAI.postId || 0);
+    if (!requestedPostId) return;
+    var startingVersion = editorChangeVersion;
+    notice('Loading the selected WordPress post…', 'info');
+    app.setAttribute('aria-busy', 'true');
+    try {
+      var response = await fetch(DixcoverHubAI.loadUrl + encodeURIComponent(requestedPostId), {
+        credentials: 'same-origin',
+        headers: apiHeaders()
+      });
+      var data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Could not load this WordPress post.');
+      if (startingVersion !== editorChangeVersion) {
+        throw new Error('The editor changed while the post was loading. Reopen it before editing.');
+      }
+      suspendDirtyTracking = true;
+      activePostId = Number(data.id);
+      activePostStatus = data.status === 'publish' ? 'publish' : 'draft';
+      setValue('dh-ai-title', data.title);
+      setSlug(data.slug, data.title, data.status);
+      setValue('dh-ai-category', data.categoryId || '');
+      setValue('dh-ai-mode', 'refine');
+      var featuredToggle = $('[data-featured-toggle]');
+      if (featuredToggle) featuredToggle.checked = !!data.featured;
+      setValue('dh-ai-provider-website-source', data.providerWebsite);
+      setValue('dh-ai-application-email-source', data.applicationEmail);
+      setValue('dh-ai-links', (data.sources || []).map(function (source) { return source.url; }).join('\n'));
+      selectedFeaturedImage = 0;
+      var preview = $('[data-featured-preview]');
+      if (preview) preview.replaceChildren();
+      applyResult(data, false);
+      if (data.featuredImageId && data.featuredImageUrl) {
+        showFeaturedImage(data.featuredImageId, data.featuredImageUrl, data.featuredImageAlt, data.featuredImageThumbnail);
+      }
+      var pageTitle = $('[data-editor-title]');
+      var workspaceTitle = $('[data-editor-workspace-title]');
+      if (pageTitle) pageTitle.textContent = 'Edit Opportunity';
+      if (workspaceTitle) workspaceTitle.textContent = 'Edit the opportunity';
+      updatePostActions();
+      updateReviewWarning();
+      saveHint.textContent = activePostStatus === 'publish' ? 'Published opportunity loaded.' : 'WordPress draft loaded.';
+      updatePostLinks(data);
+      editorDirty = false;
+      autoSaveFailed = false;
+      setAutoSaveState('Saved in WordPress');
+      notice('WordPress post loaded. Review or refine its content; changes autosave or you can save them now.', 'success');
+    } catch (error) {
+      notice(error.message || 'Could not load this WordPress post.', 'error');
+    } finally {
+      suspendDirtyTracking = false;
+      app.removeAttribute('aria-busy');
+    }
+  }
+
+  async function savePost(status, button, autosave) {
+    autosave = !!autosave;
+    if (saveInProgress) return;
+    if (autosave && !activePostId) return;
+    var title = value('dh-ai-title');
+    var content = getEditorContent();
+    if (!title || !content.trim()) {
+      if (autosave) {
+        autoSaveFailed = true;
+        setAutoSaveState('Autosave could not run. Add a title and article body, then save again.', 'error');
+      } else {
+        notice('Add a title and article body before saving.', 'error');
+      }
+      return;
+    }
+    window.clearTimeout(autoSaveTimer);
+    autoSaveTimer = 0;
+    saveInProgress = true;
+    var savedVersion = editorChangeVersion;
+    var saveButtonForLabel = button || saveButton;
     var categories = Array.prototype.map.call(app.querySelectorAll('input[name="dh_ai_categories[]"]:checked'), function (item) { return Number(item.value); });
     var payload = {
-      postId: activePostId, title: title, content: content, excerpt: value('dh-ai-excerpt'), categoryIds: categories,
-      tags: splitTags(value('dh-ai-tags')), opportunity: opportunityPayload(), featuredImageId: selectedFeaturedImage
+      postId: activePostId, status: status, title: title, content: content, excerpt: value('dh-ai-excerpt'), categoryIds: categories,
+      slug: currentSlug || slugify(title),
+      tags: splitTags(value('dh-ai-tags')), opportunity: opportunityPayload(), featuredImageId: selectedFeaturedImage,
+      featured: !!($('[data-featured-toggle]') && $('[data-featured-toggle]').checked)
     };
-    button.disabled = true; button.textContent = 'Saving draft…';
+    saveButton.disabled = true;
+    if (publishButton) publishButton.disabled = true;
+    if (autosave) {
+      setAutoSaveState('Saving automatically…', 'saving');
+    } else {
+      autoSaveFailed = false;
+      saveButtonForLabel.textContent = status === 'publish' ? 'Publishing...' : 'Saving draft...';
+    }
     try {
       var response = await fetch(DixcoverHubAI.saveUrl, { method: 'POST', credentials: 'same-origin', headers: Object.assign({ 'Content-Type': 'application/json' }, apiHeaders()), body: JSON.stringify(payload) });
       var json = await response.json();
-      if (!response.ok) throw new Error(json.message || 'Could not save the draft.');
-      activePostId = Number(json.id); $('[data-save-hint]').textContent = json.message;
-      notice(json.message, 'success');
-      button.textContent = 'Update WordPress draft';
-      var oldLink = $('[data-open-draft]');
-      if (oldLink) oldLink.remove();
-      var link = document.createElement('a'); link.dataset.openDraft = '1'; link.href = json.editUrl; link.className = 'dh-ai-edit-link'; link.textContent = 'Continue in WordPress editor ↗'; link.target = '_blank'; link.rel = 'noopener noreferrer';
-      $('[data-save-hint]').appendChild(link);
-    } catch (error) { notice(error.message || 'Could not save the draft.', 'error'); button.textContent = 'Save as WordPress draft'; }
-    finally { button.disabled = false; }
+      if (!response.ok) throw new Error(json.message || 'Could not save the post.');
+      activePostId = Number(json.id);
+      activePostStatus = json.status === 'publish' ? 'publish' : 'draft';
+      if (json.slug && editorChangeVersion === savedVersion) {
+        currentSlug = slugify(json.slug);
+        if ('publish' === activePostStatus) slugCustomized = true;
+        renderSlug();
+      }
+      if (!autosave) {
+        saveHint.textContent = json.message;
+        notice(json.message, 'success');
+      }
+      updatePostActions();
+      updateReviewWarning();
+      updatePostLinks(json);
+      if (editorChangeVersion === savedVersion) {
+        editorDirty = false;
+        autoSaveFailed = false;
+        setAutoSaveState(autosave ? 'Saved automatically' : 'Saved to WordPress');
+      } else {
+        editorDirty = true;
+        setAutoSaveState('Unsaved changes');
+      }
+    } catch (error) {
+      editorDirty = true;
+      autoSaveFailed = true;
+      if (autosave) {
+        setAutoSaveState('Autosave failed. Use a save button to retry.', 'error');
+      } else {
+        notice(error.message || 'Could not save the post.', 'error');
+        setAutoSaveState('Save failed; changes remain in this editor.', 'error');
+      }
+      updatePostActions();
+    } finally {
+      saveInProgress = false;
+      saveButton.disabled = false;
+      if (publishButton) publishButton.disabled = false;
+      if (editorDirty && !autoSaveFailed && activePostId) queueAutoSave();
+    }
+  }
+
+  saveButton.addEventListener('click', function () {
+    savePost(activePostId ? activePostStatus : 'draft', saveButton, false);
   });
-
-
+  if (publishButton) publishButton.addEventListener('click', function () { savePost('publish', publishButton, false); });
+  window.addEventListener('keydown', function (event) {
+    if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 's') return;
+    event.preventDefault();
+    var statusToSave = activePostId ? activePostStatus : 'draft';
+    var button = statusToSave === 'publish' && publishButton ? publishButton : saveButton;
+    savePost(statusToSave, button, false);
+  });
+  app.addEventListener('input', function () { markEditorDirty(); renderReadiness(); });
+  app.addEventListener('change', function () { markEditorDirty(); renderReadiness(); });
+  function bindTinyMCEAutosave(editor) {
+    if (!editor || editor.id !== 'dixcoverhub_ai_content' || editor._dhAutosaveBound) return;
+    editor._dhAutosaveBound = true;
+    editor.on('input change keyup', function () { markEditorDirty(); renderReadiness(); });
+  }
+  if (window.tinymce) {
+    var currentEditor = window.tinymce.get('dixcoverhub_ai_content');
+    if (currentEditor) bindTinyMCEAutosave(currentEditor);
+    window.tinymce.on('AddEditor', function (event) { bindTinyMCEAutosave(event.editor); });
+  }
   var fileInput = document.getElementById('dh-ai-images');
   var evidenceFiles = [];
   var generationBusy = false;
@@ -284,6 +737,15 @@
     img.alt = alt || '';
     var label = document.createElement('span');
     label.textContent = 'Selected as featured image';
+    var edit = document.createElement('button');
+    edit.type = 'button';
+    edit.className = 'button-link dh-ai-image-edit';
+    edit.textContent = 'Edit image';
+    edit.dataset.imageId = String(selectedFeaturedImage);
+    edit.dataset.imageUrl = imageUrl;
+    edit.dataset.imageAlt = alt || '';
+    try { edit.dataset.imageFilename = decodeURIComponent(new URL(imageUrl, window.location.href).pathname.split('/').pop() || 'featured-image'); }
+    catch (_) { edit.dataset.imageFilename = 'featured-image'; }
     var clear = document.createElement('button');
     clear.type = 'button';
     clear.className = 'button-link-delete';
@@ -295,14 +757,23 @@
         button.textContent = 'Use as featured';
         button.disabled = false;
       });
+      markEditorDirty();
+      renderReadiness();
     });
     app.querySelectorAll('[data-ai-feature-image]').forEach(function (button) {
       var isSelected = Number(button.dataset.attachmentId) === selectedFeaturedImage;
       button.textContent = isSelected ? 'Selected' : 'Use as featured';
       button.disabled = false;
     });
-    preview.append(img, label, clear);
+    preview.append(img, label, edit, clear);
+    markEditorDirty();
+    renderReadiness();
   }
+
+  window.addEventListener('dixcoverhub-ai-featured-image-update', function (event) {
+    var image = event.detail || {};
+    if (image.id && image.url) showFeaturedImage(image.id, image.url, image.alt || '', image.thumbnail || image.url);
+  });
 
   function renderEvidenceImages() {
     var host = $('[data-file-list]');
@@ -403,8 +874,8 @@
     Array.prototype.forEach.call(files || [], function (file) {
       if (evidenceFiles.length >= 8) { skipped.push(file.name + ': limit of 8 images reached'); return; }
       if (!acceptedTypes.includes(String(file.type || '').toLowerCase())) { skipped.push(file.name + ': use PNG, JPEG, WebP, or GIF'); return; }
-      if (file.size < 1 || file.size > 8 * 1024 * 1024) { skipped.push(file.name + ': each image must be 8 MB or smaller'); return; }
-      if (totalBytes + file.size > 24 * 1024 * 1024) { skipped.push(file.name + ': combined image limit is 24 MB'); return; }
+      if (file.size < 1 || file.size > maxImageBytes) { skipped.push(file.name + ': maximum image size for this WordPress server is ' + maxImageLabel); return; }
+      if (totalBytes + file.size > maxTotalImageBytes) { skipped.push(file.name + ': combined image limit for this WordPress server is ' + maxTotalImageLabel); return; }
       totalBytes += file.size;
       evidenceFiles.push({ file: file, previewUrl: URL.createObjectURL(file), uploaded: null, saving: false });
       added += 1;
@@ -450,4 +921,8 @@
     });
     frame.open();
   });
+
+  initializeSlugEditor();
+  renderReadiness();
+  loadExistingPost();
 })();
